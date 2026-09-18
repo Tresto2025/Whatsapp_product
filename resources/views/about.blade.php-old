@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.4.0/fonts/remixicon.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ asset('front') }}/assets/styles.css" />
+    <title>Tatkal Doctor</title>
+    <style>
+        main {
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            line-height: 1.7
+        }
+
+        .hero {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start
+        }
+
+        .hero .left {
+            flex: 1
+        }
+
+        .hero .right {
+            flex: 0 0 360px
+        }
+
+        .card {
+            background: #f8f8f8;
+            padding: 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem
+        }
+
+        .feature {
+            background: #fff;
+            border: 1px solid #eee;
+            padding: 1rem;
+            border-radius: 8px
+        }
+
+        @media (max-width:900px) {
+            .hero {
+                flex-direction: column
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        /* ensure register CTA stays in top-right of nav */
+        nav .btn {
+            position: absolute;
+            right: 1rem;
+            top: 18px
+        }
+
+        nav {
+            position: relative
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <nav>
+            <div class="nav__logo"><img src="{{ asset('uploads') }}/logo/logo.png" alt="logo" style="width: 60%;" />
+            </div>
+             <ul class="nav__links">
+                <li class="link"><a href="{{ route('home') }}">Home</a></li>
+                <li class="link"><a href="{{ route('about') }}">About Us</a></li>
+                <li class="link"><a href="{{ route('contact') }}">Contacts</a></li>
+                <li class="link"><a href="{{ route('register') }}">Register Now</a></li>
+            </ul>
+            <a href="{{ route('login') }}"><button class="btn">Login</button></a>
+        </nav>
+        <main>
+            <section class="hero">
+                <div class="left">
+                    <h1>About Us</h1>
+
+
+                    <p><strong>Tatkal Doctor</strong> enables clinics and doctors to run fast, patient-friendly practice
+                        workflows
+                        entirely through WhatsApp while managing everything from a secure web dashboard. Patients book,
+                        reschedule, or
+                        cancel appointments and receive automated reminders via WhatsApp — and doctors register, manage
+                        patients, and send
+                        personalized messages from the Tatkal Doctor portal.</p>
+
+                    <div class="card">
+                        <h3>One-line summary</h3>
+                        <p>WhatsApp-first practice management for appointment booking, reminders, and simple patient
+                            communication — no
+                            app installs for patients, minimal setup for clinics.</p>
+                    </div>
+                </div>
+
+                <div class="right">
+                    <div class="card">
+                        <h3>Key benefits</h3>
+                        <ul>
+                            <li>Frictionless patient experience — book and receive reminders on WhatsApp</li>
+                            <li>Faster no-show reduction with automatic reminders</li>
+                            <li>Simple dashboard for doctors to manage appointments and patients</li>
+                            <li>Personalized messages (appointment confirmations, follow-ups)</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h3>Who it's for</h3>
+                        <p>Individual doctors, small clinics, and multi-doctor practices who want fast onboarding and an
+                            easy way to
+                            manage appointments using the most-used messaging app in India.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>How Tatkal Doctor Works — quick flow</h2>
+                <div class="feature-grid" aria-hidden="false">
+                    <div class="feature">
+                        <h4>Patient books via WhatsApp</h4>
+                        <p>User sends a message to your clinic's WhatsApp number and chooses available slots
+                            (interactive or simple quick
+                            replies).</p>
+                    </div>
+                    <div class="feature">
+                        <h4>Doctor registers & manages</h4>
+                        <p>Doctors register on the Tatkal Doctor dashboard, view bookings, reschedule or cancel slots
+                            and send
+                            personalized follow-ups.</p>
+                    </div>
+                    <div class="feature">
+                        <h4>Automated reminders</h4>
+                        <p>Automated WhatsApp reminders reduce no-shows — configurable timing before appointments.</p>
+                    </div>
+                    <div class="feature">
+                        <h4>Safe & auditable</h4>
+                        <p>All appointment events and communications are logged in the dashboard for audits and support.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Features in detail</h2>
+
+                <div class="card">
+                    <h3>Booking, Reschedule & Cancellation</h3>
+                    <p>Patients can book new appointments, reschedule or cancel using WhatsApp. All actions update the
+                        doctor’s
+                        dashboard in real-time so staff can manage availability without switching apps.</p>
+                </div>
+
+                <div class="card">
+                    <h3>Personalized Messaging</h3>
+                    <p>Doctors can send appointment confirmations, pre-visit instructions and post-visit follow-ups
+                        directly from the
+                        dashboard — messages include patient name and appointment details for a personal touch.</p>
+                </div>
+
+                <div class="card">
+                    <h3>Dashboard & Reporting</h3>
+                    <p>Simple UI to view upcoming appointments, filter by doctor or date, export appointment lists and
+                        review
+                        attendance metrics to understand patient behaviour.</p>
+                </div>
+
+                <div class="card">
+                    <h3>Easy Onboarding</h3>
+                    <p>No complex EMR integration is required to start. You can connect or keep the system standalone
+                        and start
+                        receiving bookings on WhatsApp quickly.</p>
+                </div>
+            </section>
+
+            <section>
+                <h2>Security & Compliance</h2>
+                <p>We use industry-standard measures to protect data in transit and at rest. Payment transactions are
+                    processed by
+                    Razorpay (we never store card data on our servers). Our policies (Privacy Policy, Terms, Refund
+                    Policy) are
+                    published on the website and we maintain a named Grievance Officer to address any data or service
+                    concerns
+                    promptly.</p>
+            </section>
+
+            <section>
+                <h2>Common questions (FAQ)</h2>
+
+                <div class="card">
+                    <h4>1) Do patients need to install anything?</h4>
+                    <p> No. Patients use WhatsApp (no app downloads required) to book and manage appointments.</p>
+                </div>
+                <div class="card">
+                    <h4>2) Can doctors customize their appointment timings?</h4>
+                    <p> Yes. Doctors can set custom consulting hours, break times, slot durations, online/offline
+                        availability, and holidays
+                        directly from the dashboard.
+                        Doctor.</p>
+            </section>
+        </main>
+    </div>
+    <footer class="site-footer">
+        <div class="footer__wrap">
+            <div class="footer__brand">
+                <img src="{{ asset('uploads') }}/logo/logo.png" alt="Tatkal Doctor" style="height:40px;" />
+                <p>Tatkal Doctor — WhatsApp-first practice management.</p>
+                <p>&copy; <span id="year"></span> <strong>TatkalDoctor</strong>. All rights reserved.</p>
+            </div>
+            <div class="footer__links">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="{{ route('terms') }}">Terms &amp; Conditions</a></li>
+                    <li><a href="{{ route('privacy') }}">Privacy Policy</a></li>
+                    <li><a href="{{ route('refunds') }}">Cancellation &amp; Refund Policy</a></li>
+                    <li><a href="{{ route('shipping') }}">Shipping &amp; Delivery</a></li>
+                    <li><a href="{{ route('contact') }}">Contact &amp; Grievance</a></li>
+                </ul>
+            </div>
+            <div class="footer__contact">
+                <h4>Contact</h4>
+                <p>Email: <a href="mailto:doctortatkal@gmail.com">doctortatkal@gmail.com</a></p>
+                <p>Phone/WhatsApp: <a href="tel:+919891681122">+91 9891681122</a></p>
+                <p>Address: 2ND Floor, Vinayak Complex,
+                    Sakarpur, Computer Market,
+                    Near Nirman Vihar Metro Station, Delhi-110092</p>
+            </div>
+        </div>
+    </footer>
+    </div>
+
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+</body>
+
+</html>
