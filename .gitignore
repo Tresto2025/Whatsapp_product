@@ -17,3 +17,12 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Backups / dumps (keep out of version control)
+*.sql
+*.zip
+*-old
+*.php-old
+*.blade-old.php
+*_backup_*
+*-backup*

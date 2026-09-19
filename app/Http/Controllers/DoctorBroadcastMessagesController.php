@@ -21,8 +21,8 @@ class DoctorBroadcastMessagesController extends Controller
     
     public function __construct()
     {
-        $this->token = env('WHATSAPP_TOKEN');
-        $this->phone_number_id = env('PHONE_NUMBER_ID');
+        $this->token = config('services.whatsapp.token');
+        $this->phone_number_id = config('services.whatsapp.phone_number_id');
     }
     public function index(){
         $doctorId = Auth::id();

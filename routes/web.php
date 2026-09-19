@@ -34,7 +34,7 @@ Route::post('/demo/callback', [CallbackController::class, 'handle']);
 Route::get('/clear-cache', function () {
     Artisan::call('optimize:clear');
     return 'All caches cleared successfully!';
-});
+})->middleware(['auth', 'super_admin']);
 
 /*
 |--------------------------------------------------------------------------
@@ -139,12 +139,14 @@ Route::get('/doctor/my-balance', [WalletController::class, 'myBalance'])->name('
 
 /*
 |--------------------------------------------------------------------------
-| Admin Message Price (no auth guard — move inside auth if needed)
+| Admin Message Price (super-admin only)
 |--------------------------------------------------------------------------
 */
 
-Route::get('admin/message-price', [MessagePriceController::class, 'index'])->name('admin.message.price');
-Route::post('admin/message-price-update', [MessagePriceController::class, 'update'])->name('admin.message.price.update');
+Route::middleware(['auth', 'super_admin'])->group(function () {
+    Route::get('admin/message-price', [MessagePriceController::class, 'index'])->name('admin.message.price');
+    Route::post('admin/message-price-update', [MessagePriceController::class, 'update'])->name('admin.message.price.update');
+});
 
 /*
 |--------------------------------------------------------------------------

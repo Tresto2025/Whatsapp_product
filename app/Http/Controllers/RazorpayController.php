@@ -22,7 +22,7 @@ class RazorpayController extends Controller
             'amount' => 'required|numeric|min:1',
         ]);
 
-        $api = new Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
+        $api = new Api(config('services.razorpay.key'), config('services.razorpay.secret'));
 
         $order = $api->order->create([
             'receipt' => 'order_' . uniqid(),
@@ -46,7 +46,7 @@ class RazorpayController extends Controller
             'email' => $request->email,
             'phone' => $request->phone,
             'amount' => $request->amount,
-            'razorpayKey' => env('RAZORPAY_KEY'),
+            'razorpayKey' => config('services.razorpay.key'),
         ]);
     }
 

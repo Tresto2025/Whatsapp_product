@@ -162,9 +162,9 @@ class DoctorAppointmentController extends Controller
         $appointment->save();
         
         try {
-            $sid    = env('TWILIO_SID');
-            $token  = env('TWILIO_AUTH_TOKEN');
-            $from   = env('TWILIO_WHATSAPP_FROM');
+            $sid    = config('services.twilio.sid');
+            $token  = config('services.twilio.token');
+            $from   = config('services.twilio.whatsapp_from');
             $to     = "whatsapp:" . $appointment->phone;
     
             $client = new Client($sid, $token);
@@ -269,8 +269,8 @@ class DoctorAppointmentController extends Controller
     
     private function sendWhatsAppMessage($to, $message)
     {
-        $token = env('WHATSAPP_TOKEN');
-        $phone_number_id = env('PHONE_NUMBER_ID');
+        $token = config('services.whatsapp.token');
+        $phone_number_id = config('services.whatsapp.phone_number_id');
     
         $url = "https://graph.facebook.com/v22.0/{$phone_number_id}/messages";
     
@@ -382,8 +382,8 @@ class DoctorAppointmentController extends Controller
     
     private function sendWhatsAppText($to, $message)
     {
-        $token = env('WHATSAPP_TOKEN');
-        $phone_number_id = env('PHONE_NUMBER_ID');
+        $token = config('services.whatsapp.token');
+        $phone_number_id = config('services.whatsapp.phone_number_id');
         $url = "https://graph.facebook.com/v22.0/{$phone_number_id}/messages";
         $payload = [
             "messaging_product" => "whatsapp",
@@ -420,8 +420,8 @@ class DoctorAppointmentController extends Controller
             ]
         ];
     
-        $token = env('WHATSAPP_TOKEN');
-        $phone_number_id = env('PHONE_NUMBER_ID');
+        $token = config('services.whatsapp.token');
+        $phone_number_id = config('services.whatsapp.phone_number_id');
         $url = "https://graph.facebook.com/v22.0/{$phone_number_id}/messages";
         $payload = [
             "messaging_product" => "whatsapp",

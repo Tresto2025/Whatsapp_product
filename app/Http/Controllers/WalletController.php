@@ -48,7 +48,7 @@ class WalletController extends Controller
     \Log::info('Payment ID: '.$paymentId);
     \Log::info('Amount: '.$amount);
 
-    $api = new \Razorpay\Api\Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
+    $api = new \Razorpay\Api\Api(config('services.razorpay.key'), config('services.razorpay.secret'));
 
     try {
 

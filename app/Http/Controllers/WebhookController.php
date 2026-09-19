@@ -19,8 +19,8 @@ class WebhookController extends Controller
     
     public function __construct()
     {
-        $this->token = env('WHATSAPP_TOKEN');
-        $this->phone_number_id = env('PHONE_NUMBER_ID');
+        $this->token = config('services.whatsapp.token');
+        $this->phone_number_id = config('services.whatsapp.phone_number_id');
     }
 
     /* ===============================================
@@ -29,14 +29,40 @@ class WebhookController extends Controller
 
     public function verify(Request $request)
     {
+        $verifyToken = config('services.whatsapp.verify_token');
+
         if (
+            $verifyToken &&
             $request->hub_mode === 'subscribe' &&
-            $request->hub_verify_token === 'my_verify_token'
+            hash_equals($verifyToken, (string) $request->hub_verify_token)
         ) {
             return response($request->hub_challenge, 200);
         }
 
         return response('Verification failed', 403);
+    }
+
+    /**
+     * Verify Meta's X-Hub-Signature-256 HMAC header against the raw request
+     * body using the app secret. Returns true when no app secret is configured
+     * (so local/dev without a secret still works), false only on an explicit
+     * mismatch.
+     */
+    private function signatureIsValid(Request $request): bool
+    {
+        $appSecret = config('services.whatsapp.app_secret');
+        if (empty($appSecret)) {
+            return true; // no secret configured — skip verification
+        }
+
+        $signature = $request->header('X-Hub-Signature-256');
+        if (empty($signature)) {
+            return false;
+        }
+
+        $expected = 'sha256=' . hash_hmac('sha256', $request->getContent(), $appSecret);
+
+        return hash_equals($expected, $signature);
     }
 
     /* ===============================================
@@ -45,6 +71,11 @@ class WebhookController extends Controller
 
     public function receive(Request $request)
     {
+        if (!$this->signatureIsValid($request)) {
+            Log::warning('WhatsApp webhook rejected: invalid signature');
+            return response('Invalid signature', 403);
+        }
+
         Log::info("Webhook Hit", $request->all());
         $data = $request->all();
         if (!isset($data['entry'][0]['changes'][0]['value']['messages'][0])) {
