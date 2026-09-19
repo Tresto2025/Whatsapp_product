@@ -206,6 +206,25 @@ Embedded Signup onboarding.
 
 ---
 
+## Implementation progress
+
+- **Phase 0 — done.** Hygiene & security: DB dump + dead files removed, `env()`→`config()`,
+  webhook HMAC verification, `/clear-cache` & `admin/message-price` guarded, misfiled
+  controllers moved.
+- **Phase 1 — in progress.** Tenancy core landed: `tenants` table + guarded `tenant_id`
+  migration with default-tenant backfill, `Tenant` model, `BelongsToTenant` trait +
+  `TenantScope` global scope, `TenantManager` singleton, `ResolveTenant` middleware (in the
+  web group), role constants/helpers on `User`, `EnsureSuperAdmin` using them, and
+  `TenancySeeder` (default tenant + super admin).
+  - **Deviation from plan:** roles are implemented natively (integer `users.role` +
+    constants/helpers: 0 super admin, 1 tenant admin, 2 tenant staff) instead of
+    spatie/laravel-permission, to avoid a hard `composer require` dependency in the current
+    environment. Can be swapped to spatie later without changing call sites (helpers stay).
+  - **Still pending in Phase 1:** reconstruct baseline migrations from the SQL dump so
+    `migrate:fresh` builds the full schema (the additive `tenant_id` migration is written to
+    be safe against the existing dump-loaded DB in the meantime). Feature-level isolation
+    tests depend on that reconstruction; a `TenantManager` unit test is included now.
+
 ## Open questions / risks
 
 - **Schema reconstruction:** rebuilding migrations from the 20 MB dump is the biggest unknown;

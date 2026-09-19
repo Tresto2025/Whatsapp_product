@@ -7,10 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Restricts a route to super-admin users.
- *
- * Phase 0 stepping stone: uses the legacy `users.role == 1` convention. Phase 1
- * replaces this check with spatie/laravel-permission roles ("super_admin").
+ * Restricts a route to platform super-admin users (User::ROLE_SUPER_ADMIN).
  */
 class EnsureSuperAdmin
 {
@@ -18,7 +15,7 @@ class EnsureSuperAdmin
     {
         $user = $request->user();
 
-        if (!$user || (int) $user->role !== 1) {
+        if (!$user || !$user->isSuperAdmin()) {
             abort(403, 'Super admin access required.');
         }
 

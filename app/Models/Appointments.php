@@ -2,10 +2,13 @@
 
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToTenant;
 use Carbon\Carbon;
 
 class Appointments extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'appointments';
     protected $fillable = [
         'doctor_id','service_type','phone','name','date','time','start_time','new_date','new_time','purpose','status','is_reschedule','cancel_reason'

@@ -2,9 +2,12 @@
 
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToTenant;
 
 class SmsBalance extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'sms_balance';
     protected $fillable = [
         'doctor_id','total_sms','pending_sms','spent_sms','status','deleted_at'
