@@ -10,7 +10,7 @@
                 <span class="menu-title">Dashboard</span>
             </a>
         </li>
-        @if(Auth::user()->role == 1)
+        @if(Auth::user()->isTenantAdmin() || Auth::user()->isSuperAdmin())
         <li class="nav-item {{ $activePage == 'all-doctors' ? 'active' : '' }}">
             <a class="nav-link {{ $activePage == 'all-doctors' ? 'active' : '' }}" href="{{ route('doctor.index') }}">
                 <i class="mdi mdi-account-multiple  menu-icon"></i>
@@ -45,6 +45,12 @@
             <a class="nav-link {{ $activePage == 'broadcast-messages' ? 'active' : '' }}" href="{{ route('broadcast_messages.index') }}">
                 <i class="mdi mdi-checkerboard menu-icon"></i>
                 <span class="menu-title">Broadcast message</span>
+            </a>
+        </li>
+        <li class="nav-item {{ $activePage == 'whatsapp-connection' ? 'active' : '' }}">
+            <a class="nav-link {{ $activePage == 'whatsapp-connection' ? 'active' : '' }}" href="{{ route('tenant.whatsapp.index') }}">
+                <i class="mdi mdi-whatsapp menu-icon"></i>
+                <span class="menu-title">WhatsApp Connection</span>
             </a>
         </li>
         <li class="nav-item {{ in_array($activePage, ['blog-posts', 'blog-categories']) ? 'active' : '' }}">

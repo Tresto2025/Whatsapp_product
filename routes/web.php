@@ -56,13 +56,15 @@ Route::post('/payment-success', [PaymentController::class, 'paymentSuccess'])->n
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', function () {
-    $latestPosts = \App\Models\Post::where('status', 'published')
-                                    ->orderBy('published_at', 'desc')
-                                    ->limit(3)
-                                    ->get();
-    return view('frontend.home', compact('latestPosts'));
-})->name('home');
+/*
+ * The marketing landing page is parked while the SaaS panels are being built:
+ * the root URL goes straight to sign-in. The view (frontend.home) and its
+ * `latestPosts` query are untouched, so restoring it is a one-line revert.
+ *
+ * `guest` middleware on /login bounces an already-signed-in visitor on to
+ * their dashboard, so "/" is the right entry point for both cases.
+ */
+Route::redirect('/', '/login')->name('home');
 
 Route::get('/about', function () {
     return view('frontend.about');
