@@ -47,6 +47,27 @@ date.timezone = UTC
 
 Check with `php -m`. Note this file is not persisted across `scoop update php83`.
 
+### CA certificates (required)
+
+scoop's PHP ships **without** a CA bundle, so every outbound HTTPS call fails with
+`cURL error 60: SSL certificate ... unable to get local issuer certificate` — including
+every call to Meta. Download one and point PHP at it:
+
+```sh
+curl -o ~/scoop/apps/php83/current/extras/cacert.pem --create-dirs https://curl.se/ca/cacert.pem
+```
+
+then append to `php.ini` (use the absolute Windows path):
+
+```ini
+curl.cainfo = "C:\Users\<you>\scoop\apps\php83\currentxtras\cacert.pem"
+openssl.cafile = "C:\Users\<you>\scoop\apps\php83\currentxtras\cacert.pem"
+```
+
+Verify: `php -r '$c=curl_init("https://graph.facebook.com/v22.0/");curl_setopt($c,CURLOPT_RETURNTRANSFER,1);var_dump(curl_exec($c)!==false);'`
+
+**Restart `php artisan serve` after editing `php.ini`** — a running server keeps the old config.
+
 ## 2. Database
 
 ```sh
@@ -84,6 +105,24 @@ php artisan migrate:fresh --seed
 `migrate:fresh` builds the entire schema from the migrations — the SQL dump is no longer
 needed. Every baseline migration is guarded with `Schema::hasTable()`, so running `migrate`
 against a legacy dump-loaded database only adds the tenancy columns.
+
+### Demo tenants
+
+To actually exercise multi-tenancy rather than the single marketing site:
+
+```sh
+php artisan db:seed --class=DemoSeeder
+```
+
+This creates two tenants, each with an admin and its own connected WhatsApp number:
+
+| Tenant | Login | Password | phone_number_id |
+|---|---|---|---|
+| Northside Clinic | `northside@example.com` | `password` | `100000000000001` |
+| Harbour Dental | `harbour@example.com` | `password` | `100000000000002` |
+
+Sign in as either and open `/tenant/whatsapp` — each sees only its own number and
+verify token. The seeded credentials are fake: routing works, sending does not.
 
 ## 4. Front-end assets
 

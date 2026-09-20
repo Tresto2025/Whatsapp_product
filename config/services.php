@@ -51,7 +51,7 @@ return [
         'phone_number_id' => env('PHONE_NUMBER_ID'),
         'app_secret' => env('WHATSAPP_APP_SECRET'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
-        'api_version' => env('WHATSAPP_API_VERSION', 'v20.0'),
+        'api_version' => env('WHATSAPP_API_VERSION', 'v22.0'),
     ],
 
     'razorpay' => [
