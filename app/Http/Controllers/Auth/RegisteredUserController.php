@@ -36,10 +36,17 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        // The users table stores first_name/last_name rather than a single
+        // `name` column, so split the submitted name before persisting.
+        $parts = preg_split('/\s+/', trim($request->name), 2);
+
         $user = User::create([
-            'name' => $request->name,
+            'first_name' => $parts[0],
+            'last_name' => $parts[1] ?? null,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => User::ROLE_TENANT_STAFF,
+            'status' => 1,
         ]);
 
         event(new Registered($user));

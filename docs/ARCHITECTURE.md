@@ -211,7 +211,7 @@ Embedded Signup onboarding.
 - **Phase 0 — done.** Hygiene & security: DB dump + dead files removed, `env()`→`config()`,
   webhook HMAC verification, `/clear-cache` & `admin/message-price` guarded, misfiled
   controllers moved.
-- **Phase 1 — in progress.** Tenancy core landed: `tenants` table + guarded `tenant_id`
+- **Phase 1 — done.** Tenancy core landed: `tenants` table + guarded `tenant_id`
   migration with default-tenant backfill, `Tenant` model, `BelongsToTenant` trait +
   `TenantScope` global scope, `TenantManager` singleton, `ResolveTenant` middleware (in the
   web group), role constants/helpers on `User`, `EnsureSuperAdmin` using them, and
@@ -220,15 +220,43 @@ Embedded Signup onboarding.
     constants/helpers: 0 super admin, 1 tenant admin, 2 tenant staff) instead of
     spatie/laravel-permission, to avoid a hard `composer require` dependency in the current
     environment. Can be swapped to spatie later without changing call sites (helpers stay).
-  - **Still pending in Phase 1:** reconstruct baseline migrations from the SQL dump so
-    `migrate:fresh` builds the full schema (the additive `tenant_id` migration is written to
-    be safe against the existing dump-loaded DB in the meantime). Feature-level isolation
-    tests depend on that reconstruction; a `TenantManager` unit test is included now.
+  - **Baseline migrations reconstructed.** 21 new `create_*` migrations plus a rewritten
+    `create_users_table` reproduce the production schema from the `infosuzn_tatkal2.sql`
+    dump, so `migrate:fresh` now builds the whole database from code. Verified by diffing
+    `information_schema` against the dump: every dump column is reproduced; the only
+    differences are the intentional tenancy additions (`tenants` table + `tenant_id` on 15
+    tables) and `cities_old`, a dead table that is deliberately not recreated.
+    - The stock `create_users_table` described the Laravel skeleton (`name`), not the real
+      33-column table the app reads (`first_name`/`last_name`, `role`, scheduling and tax
+      fields). It has been replaced with the real schema.
+    - Every baseline migration is guarded with `Schema::hasTable()` so it is a no-op against
+      the legacy production database, which already holds these tables but has only the four
+      original migrations recorded in its `migrations` table.
+    - Types are reproduced faithfully rather than "fixed" (e.g. `doctor_id int` pointing at
+      `users.id bigint`, and `users.email` carrying no unique index because production has
+      none and `deleted_at` allows re-registration). Changing them is a separate decision.
+  - **Isolation tests added.** `tests/Feature/TenantIsolationTest.php` covers auto-filled
+    `tenant_id`, scoped reads, cross-tenant read/update/delete being blocked, per-tenant
+    counts, and super-admin bypass seeing every tenant.
+  - **Test-support fixes required by the real schema:** `UserFactory` now produces
+    `first_name`/`last_name`, a role and a tenant (tenant-less users are rejected by
+    `ResolveTenant`); a `TenantFactory` was added; `RegisteredUserController` wrote a `name`
+    column that does not exist, so it now splits the submitted name into first/last.
+
+### Removed stock scaffolding
+
+`tests/Feature/ProfileTest.php` was unmodified Laravel Breeze scaffolding exercising
+`/profile` GET/PATCH/DELETE. This application replaced those with `doctor/profile` routes
+and has no account-deletion route, so all five cases 404'd — they covered nothing and could
+not catch a regression. The file was removed; if Breeze-style profile management is ever
+wanted, write tests against `ProfileController` instead.
+
+With it gone, `php artisan test` is green: 34 passed.
 
 ## Open questions / risks
 
-- **Schema reconstruction:** rebuilding migrations from the 20 MB dump is the biggest unknown;
-  budget time to diff dump schema vs. models.
+- **Schema reconstruction — resolved.** Baseline migrations were rebuilt from the dump and
+  verified column-by-column against it; `migrate:fresh --seed` builds the database from code.
 - **Meta compliance:** Embedded Signup requires Tech Provider/BSP approval (weeks, external
   dependency) — that's why it's phased last.
 - **Token storage:** per-tenant access tokens are sensitive; rely on Laravel encryption +
