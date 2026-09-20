@@ -119,4 +119,27 @@ class WhatsAppOnboardingTest extends TestCase
         $this->get('/api/webhook?hub_mode=subscribe&hub_verify_token=not-a-real-token&hub_challenge=CHALLENGE42')
             ->assertForbidden();
     }
+    public function test_staff_cannot_manage_the_whatsapp_connection(): void
+    {
+        $tenant = Tenant::factory()->create();
+        WhatsappAccount::factory()->forTenant($tenant)->create();
+
+        // A doctor/staff account uses the workspace but must not be able to
+        // change the number the whole tenant sends from.
+        $staff = User::factory()->forTenant($tenant)->create();
+        $this->actingAs($staff);
+
+        $this->get(route('tenant.whatsapp.index'))->assertForbidden();
+        $this->get(route('tenant.whatsapp.create'))->assertForbidden();
+    }
+
+    public function test_a_tenant_admin_can_manage_the_whatsapp_connection(): void
+    {
+        $tenant = Tenant::factory()->create();
+        WhatsappAccount::factory()->forTenant($tenant)->create();
+
+        $this->actingAsTenantAdmin($tenant);
+
+        $this->get(route('tenant.whatsapp.index'))->assertOk();
+    }
 }

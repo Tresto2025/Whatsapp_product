@@ -49,6 +49,20 @@ class DemoSeeder extends Seeder
 
                 $tenant->forceFill(['owner_user_id' => $admin->id])->save();
 
+                // A doctor/staff account, so the doctor panel is testable too.
+                User::updateOrCreate(
+                    ['email' => 'doctor-'.$demo['slug'].'@example.com'],
+                    [
+                        'tenant_id' => $tenant->id,
+                        'first_name' => 'Dr',
+                        'last_name' => explode(' ', $demo['name'])[0],
+                        'role' => User::ROLE_TENANT_STAFF,
+                        'status' => 1,
+                        'booking_enabled' => 1,
+                        'password' => Hash::make('password'),
+                    ]
+                );
+
                 WhatsappAccount::withoutGlobalScopes()->updateOrCreate(
                     ['phone_number_id' => $demo['pnid']],
                     [
@@ -66,7 +80,7 @@ class DemoSeeder extends Seeder
                     ]
                 );
 
-                $this->command?->info("Tenant [{$demo['name']}] — login {$email} / password — number {$demo['pnid']}");
+                $this->command?->info("Tenant [{$demo['name']}] — admin {$email} — doctor doctor-{$demo['slug']}@example.com — password: password — number {$demo['pnid']}");
             }
         });
     }

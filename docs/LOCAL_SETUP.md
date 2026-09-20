@@ -116,10 +116,21 @@ php artisan db:seed --class=DemoSeeder
 
 This creates two tenants, each with an admin and its own connected WhatsApp number:
 
-| Tenant | Login | Password | phone_number_id |
-|---|---|---|---|
-| Northside Clinic | `northside@example.com` | `password` | `100000000000001` |
-| Harbour Dental | `harbour@example.com` | `password` | `100000000000002` |
+| Tenant | Admin login | Doctor login | Password | phone_number_id |
+|---|---|---|---|---|
+| Northside Clinic | `northside@example.com` | `doctor-northside@example.com` | `password` | `100000000000001` |
+| Harbour Dental | `harbour@example.com` | `doctor-harbour@example.com` | `password` | `100000000000002` |
+
+The platform super admin is seeded separately by `TenancySeeder` from
+`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` in `.env`.
+
+What each role sees after signing in at `/login`:
+
+| Role | Lands on | WhatsApp connection page |
+|---|---|---|
+| Super admin (0) | `/dashboard`, unscoped across tenants | yes |
+| Tenant admin (1) | `/dashboard` for their tenant | yes |
+| Doctor / staff (2) | `/doctor-dashboard` | no — 403 |
 
 Sign in as either and open `/tenant/whatsapp` — each sees only its own number and
 verify token. The seeded credentials are fake: routing works, sending does not.
@@ -152,3 +163,8 @@ php artisan test
   exercise the real async path, set `QUEUE_CONNECTION=database` and run
   `php artisan queue:work` in a second terminal — without the worker, inbound webhooks
   queue up and are never processed.
+- **Known pre-existing bug:** the blog admin pages (`/blog/posts`, `/blog/categories`)
+  return 404 because the public `/blog/{slug}` route is registered first and swallows them.
+  This predates the tenancy work — see the original import in git history.
+- `public/admin/` is a real directory, so `php artisan serve` serves it statically and
+  `/admin/message-price` 404s under the built-in server. It works behind Apache/nginx.

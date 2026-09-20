@@ -14,15 +14,23 @@ class DashboardController extends Controller
 {
     public function index(){
         $user_type = Auth::user()->role;
-        if($user_type == 1){
+
+        // Platform super admin. Phase 4 replaces this with a dedicated panel;
+        // until then they get the admin dashboard, which their tenant-scope
+        // bypass renders across every tenant rather than just one.
+        if($user_type == User::ROLE_SUPER_ADMIN){
           return view('dashboard');
         }
-        if($user_type == 2){
+        if($user_type == User::ROLE_TENANT_ADMIN){
+          return view('dashboard');
+        }
+        if($user_type == User::ROLE_TENANT_STAFF){
             $id = Auth::user()->id;
             $doctor = User::where('id',$id)->first();
          return view('doctor-dashboard', compact('id','doctor'));
         }
-        
+
+        abort(403, 'This account has no dashboard assigned.');
     }
     
     public function UserLogout(){

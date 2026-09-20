@@ -275,7 +275,7 @@ Route::middleware('auth')->group(function () {
 | the signed-in user's tenant; route-model binding on WhatsappAccount inherits
 | the global tenant scope, meaning one tenant cannot address another's row.
 */
-Route::middleware(['auth', 'tenant'])->prefix('tenant/whatsapp')->name('tenant.whatsapp.')->group(function () {
+Route::middleware(['auth', 'tenant', 'tenant_admin'])->prefix('tenant/whatsapp')->name('tenant.whatsapp.')->group(function () {
     Route::get('/', [WhatsAppConnectionController::class, 'index'])->name('index');
     Route::get('/connect', [WhatsAppConnectionController::class, 'create'])->name('create');
     Route::post('/connect', [WhatsAppConnectionController::class, 'store'])->name('store');
