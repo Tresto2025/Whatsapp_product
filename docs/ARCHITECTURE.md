@@ -243,6 +243,45 @@ Embedded Signup onboarding.
     `ResolveTenant`); a `TenantFactory` was added; `RegisteredUserController` wrote a `name`
     column that does not exist, so it now splits the submitted name into first/last.
 
+- **Phase 2 — done.** Per-tenant WhatsApp.
+  - `whatsapp_accounts` table: one Meta number per row, owned by a tenant.
+    `phone_number_id` is unique platform-wide because it is the inbound routing key.
+    `access_token` and `app_secret` use encrypted casts and are in `$hidden`, so they are
+    ciphertext in a dump and cannot leak into a view or JSON response.
+  - `WhatsAppClient` (`app/Services/WhatsApp/`) is always constructed from an account row.
+    `current()` resolves the active tenant's default connected number and falls back to the
+    platform credentials, so the legacy single-tenant flow keeps working until it is
+    onboarded. It uses Laravel's HTTP client, which made the send path testable.
+  - Every `curl` block in `WebhookController`, `BroadcastMessagesController`,
+    `DoctorBroadcastMessagesController` and `DoctorAppointmentController` now goes through
+    the client; no controller reads WhatsApp credentials any more.
+  - **Webhook routing:** `POST /api/webhook` reads
+    `entry[].changes[].value.metadata.phone_number_id`, resolves the owning account, verifies
+    `X-Hub-Signature-256` with *that account's* secret, and dispatches
+    `ProcessInboundWhatsAppMessage`, which runs the existing handler inside the tenant's
+    context. Unknown numbers 404; bad or missing signatures 403.
+  - The old 770-line `receive()` became `handleInbound(array $data)` unchanged; only its
+    request parsing and signature check moved out.
+  - `verify()` matches the handshake token against `whatsapp_accounts.verify_token` (the
+    hardcoded platform token is still accepted for the legacy number) and flips
+    `webhook_status` to verified.
+  - Manual onboarding UI at `/tenant/whatsapp`: credentials are proven with
+    `GET /{phone_number_id}` before the row is marked connected, so a typo fails at the form
+    rather than silently on the first message.
+  - Blog scoping gap from Phase 1 closed: `posts` and `categories` now carry `tenant_id`
+    and use `BelongsToTenant`.
+
+  **Two bugs found while building this, both fixed:**
+  - `ResolveTenant` sat *after* `SubstituteBindings` in the web middleware group, so
+    route-model binding resolved before any tenant context existed — one tenant could bind
+    and delete another tenant's row by id. It now runs before binding, and a test covers it.
+  - `WebhookController::send()` logged the access token in plaintext
+    (`Log::info("TOKEN VALUE: ".$this->token)`). Removed.
+
+  **Deliberately not done:** `Api/WhatsAppController@webhook` (`/api/whatsapp/webhook`) is
+  the *Twilio* webhook — it reads `From`/`Body` form fields, not Meta's JSON — so it is a
+  separate integration and is untouched by this phase.
+
 ### Removed stock scaffolding
 
 `tests/Feature/ProfileTest.php` was unmodified Laravel Breeze scaffolding exercising
@@ -251,7 +290,7 @@ and has no account-deletion route, so all five cases 404'd — they covered noth
 not catch a regression. The file was removed; if Breeze-style profile management is ever
 wanted, write tests against `ProfileController` instead.
 
-With it gone, `php artisan test` is green: 34 passed.
+With it gone, `php artisan test` is green.
 
 ## Open questions / risks
 
@@ -259,7 +298,14 @@ With it gone, `php artisan test` is green: 34 passed.
   verified column-by-column against it; `migrate:fresh --seed` builds the database from code.
 - **Meta compliance:** Embedded Signup requires Tech Provider/BSP approval (weeks, external
   dependency) — that's why it's phased last.
-- **Token storage:** per-tenant access tokens are sensitive; rely on Laravel encryption +
-  ensure `APP_KEY` management and DB-at-rest security.
-- **Queue infra:** need a queue worker (database/Redis) in production for async webhook
-  processing — currently `sync`.
+- **Token storage — implemented, but `APP_KEY` is now critical.** Per-tenant tokens are
+  encrypted with `APP_KEY`. Rotating or losing it makes every stored credential
+  undecryptable and every tenant has to reconnect, so back it up with the database.
+- **Queue infra — action required before production.** Inbound webhooks now dispatch
+  `ProcessInboundWhatsAppMessage`. The default stays `sync` (inline, correct, but Meta waits
+  for the whole flow). Switching `QUEUE_CONNECTION` to `database` without also running
+  `php artisan queue:work` would queue every message and process none — change both together.
+- **Templates are still hardcoded.** Broadcast sends name Meta templates inline
+  (`doctor_update_notification`, `new_doctor_message`, …) and assume each tenant's Meta
+  account has a template of that exact name. Phase 3's `whatsapp_templates` sync replaces
+  this; until then, onboarding a tenant means replicating those templates on their account.

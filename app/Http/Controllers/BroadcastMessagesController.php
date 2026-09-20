@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WhatsApp\WhatsAppClient;
+use Illuminate\Support\Facades\Log;
+
 use App\Models\User;
 use App\Models\BroadcastMessages;
 use Illuminate\Http\Request;
@@ -12,16 +15,7 @@ use Twilio\Rest\Client;
 
 class BroadcastMessagesController extends Controller
 {
-    private $token;
-    private $phone_number_id;
-    
-    public function __construct()
-    {
-        $this->token = config('services.whatsapp.token');
-        $this->phone_number_id = config('services.whatsapp.phone_number_id');
-    }
-    
-    public function index(){
+public function index(){
         $messages = BroadcastMessages::latest()->get();
         $doctors  = User::where('role', 2)->get(); 
         //echo "<pre>";
@@ -125,19 +119,14 @@ class BroadcastMessagesController extends Controller
                 ]
             ]
         ];
-        $url = "https://graph.facebook.com/v22.0/{$this->phone_number_id}/messages";
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$this->token}",
-            "Content-Type: application/json"
-        ]);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        \Log::info('Meta API Response: '.$response);
-        curl_close($ch);
-        return $response;
+        $client = WhatsAppClient::current();
+
+        if (!$client) {
+            Log::error('WhatsApp send skipped: no connected account for this tenant.');
+            return null;
+        }
+
+        return $client->send($payload)['raw'];
     }
     
     private function sendDoctorWhatsAppTemplateWithImage($to,$name,$title,$description,$image)
@@ -174,19 +163,14 @@ class BroadcastMessagesController extends Controller
                 ]
             ]
         ];
-        $url = "https://graph.facebook.com/v22.0/{$this->phone_number_id}/messages";
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$this->token}",
-            "Content-Type: application/json"
-        ]);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        \Log::info('Meta API Response: '.$response);
-        curl_close($ch);
-        return $response;
+        $client = WhatsAppClient::current();
+
+        if (!$client) {
+            Log::error('WhatsApp send skipped: no connected account for this tenant.');
+            return null;
+        }
+
+        return $client->send($payload)['raw'];
     }
 
     public function resend($id){

@@ -22,6 +22,7 @@ use App\Http\Controllers\RazorpayController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\CallbackController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\Tenant\WhatsAppConnectionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -264,6 +265,23 @@ Route::middleware('auth')->group(function () {
         Route::post('/categories/delete', [BlogCategoryController::class, 'destroy'])->name('deleteCat');
     });
 
+});
+
+/*
+|--------------------------------------------------------------------------
+| Tenant panel — WhatsApp connection
+|--------------------------------------------------------------------------
+| ResolveTenant already runs in the web group, so these actions are scoped to
+| the signed-in user's tenant; route-model binding on WhatsappAccount inherits
+| the global tenant scope, meaning one tenant cannot address another's row.
+*/
+Route::middleware(['auth', 'tenant'])->prefix('tenant/whatsapp')->name('tenant.whatsapp.')->group(function () {
+    Route::get('/', [WhatsAppConnectionController::class, 'index'])->name('index');
+    Route::get('/connect', [WhatsAppConnectionController::class, 'create'])->name('create');
+    Route::post('/connect', [WhatsAppConnectionController::class, 'store'])->name('store');
+    Route::post('/{account}/recheck', [WhatsAppConnectionController::class, 'recheck'])->name('recheck');
+    Route::post('/{account}/default', [WhatsAppConnectionController::class, 'makeDefault'])->name('default');
+    Route::delete('/{account}', [WhatsAppConnectionController::class, 'destroy'])->name('destroy');
 });
 
 require __DIR__ . '/auth.php';

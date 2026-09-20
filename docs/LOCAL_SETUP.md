@@ -104,7 +104,12 @@ php artisan test
 ## Notes
 
 - `composer install` can take 20+ minutes on Windows with Defender enabled; it is not hung.
-- The WhatsApp webhook needs a public URL. Until Phase 2 adds per-tenant credentials, it
-  reads the `WHATSAPP_*` keys in `.env` and verifies `X-Hub-Signature-256` against
-  `WHATSAPP_APP_SECRET`.
-- `QUEUE_CONNECTION=sync` runs jobs inline, so no queue worker is needed locally yet.
+- The WhatsApp webhook needs a public URL (ngrok or similar). Connect a number at
+  `/tenant/whatsapp`: paste the callback URL and the per-account verify token shown there
+  into your Meta app. Inbound messages are routed by `phone_number_id`, so several tenants
+  share the one callback URL. The `WHATSAPP_*` keys in `.env` remain only as the fallback
+  for the original single-tenant number.
+- `QUEUE_CONNECTION=sync` runs jobs inline, so no queue worker is needed locally. To
+  exercise the real async path, set `QUEUE_CONNECTION=database` and run
+  `php artisan queue:work` in a second terminal — without the worker, inbound webhooks
+  queue up and are never processed.

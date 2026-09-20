@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Services\WhatsApp\WhatsAppClient;
+use App\Models\Scopes\TenantScope;
+use App\Models\WhatsappAccount;
+use App\Jobs\ProcessInboundWhatsAppMessage;
 use Carbon\Carbon;
 use App\Models\User;
 use App\Models\DoctorService;
@@ -14,30 +18,43 @@ use App\Models\SmsLogs;
 
 class WebhookController extends Controller
 {
-    private $token;
-    private $phone_number_id;
-    
-    public function __construct()
-    {
-        $this->token = config('services.whatsapp.token');
-        $this->phone_number_id = config('services.whatsapp.phone_number_id');
-    }
+
 
     /* ===============================================
        VERIFY
     =============================================== */
 
+    /**
+     * Meta's webhook handshake. Every tenant pastes the same webhook URL into
+     * their own app, so the token they send identifies which account is being
+     * verified — it is matched against whatsapp_accounts.verify_token, with the
+     * platform token still accepted for the legacy single-tenant number.
+     */
     public function verify(Request $request)
     {
-        $verifyToken = config('services.whatsapp.verify_token');
+        $provided = (string) $request->hub_verify_token;
 
-        if (
-            $verifyToken &&
-            $request->hub_mode === 'subscribe' &&
-            hash_equals($verifyToken, (string) $request->hub_verify_token)
-        ) {
+        if ($request->hub_mode !== 'subscribe' || $provided === '') {
+            return response('Verification failed', 403);
+        }
+
+        $account = WhatsappAccount::withoutGlobalScope(TenantScope::class)
+            ->where('verify_token', $provided)
+            ->first();
+
+        if ($account) {
+            $account->forceFill(['webhook_status' => 'verified'])->save();
+
             return response($request->hub_challenge, 200);
         }
+
+        $platformToken = (string) config('services.whatsapp.verify_token');
+
+        if ($platformToken !== '' && hash_equals($platformToken, $provided)) {
+            return response($request->hub_challenge, 200);
+        }
+
+        Log::warning('WhatsApp webhook verification failed: unknown verify token');
 
         return response('Verification failed', 403);
     }
@@ -48,9 +65,9 @@ class WebhookController extends Controller
      * (so local/dev without a secret still works), false only on an explicit
      * mismatch.
      */
-    private function signatureIsValid(Request $request): bool
+    private function signatureIsValid(Request $request, ?string $appSecret = null): bool
     {
-        $appSecret = config('services.whatsapp.app_secret');
+        $appSecret = $appSecret ?: config('services.whatsapp.app_secret');
         if (empty($appSecret)) {
             return true; // no secret configured — skip verification
         }
@@ -69,15 +86,54 @@ class WebhookController extends Controller
        RECEIVE
     =============================================== */
 
+    /**
+     * Single shared webhook endpoint for every tenant.
+     *
+     * Routing key is entry[].changes[].value.metadata.phone_number_id: it maps
+     * to the whatsapp_accounts row that owns the number, which gives us both
+     * the tenant and the app secret to check the signature against. An unknown
+     * number or a bad signature is rejected outright.
+     */
     public function receive(Request $request)
     {
-        if (!$this->signatureIsValid($request)) {
-            Log::warning('WhatsApp webhook rejected: invalid signature');
+        $data = $request->all();
+
+        $phoneNumberId = data_get($data, 'entry.0.changes.0.value.metadata.phone_number_id');
+        $account = WhatsappAccount::findByPhoneNumberId($phoneNumberId);
+
+        // Legacy single-tenant fallback: the platform number keeps working
+        // until it is onboarded as a tenant account.
+        $platformNumber = (string) config('services.whatsapp.phone_number_id');
+        $isPlatformNumber = $platformNumber !== '' && (string) $phoneNumberId === $platformNumber;
+
+        if (!$account && !$isPlatformNumber) {
+            Log::warning('WhatsApp webhook rejected: unknown phone_number_id', [
+                'phone_number_id' => $phoneNumberId,
+            ]);
+
+            return response('Unknown number', 404);
+        }
+
+        if (!$this->signatureIsValid($request, $account?->app_secret)) {
+            Log::warning('WhatsApp webhook rejected: invalid signature', [
+                'whatsapp_account_id' => $account?->id,
+            ]);
+
             return response('Invalid signature', 403);
         }
 
-        Log::info("Webhook Hit", $request->all());
-        $data = $request->all();
+        ProcessInboundWhatsAppMessage::dispatch($account?->id, $data);
+
+        return response()->json(['status' => 'queued']);
+    }
+
+    /**
+     * Process one inbound payload. Runs inside the owning tenant's context,
+     * established by ProcessInboundWhatsAppMessage before this is called.
+     */
+    public function handleInbound(array $data)
+    {
+        Log::info("Webhook Hit", $data);
         if (!isset($data['entry'][0]['changes'][0]['value']['messages'][0])) {
             return response()->json(['status' => 'no message']);
         }
@@ -1140,25 +1196,15 @@ private function sendDateList($to)
                 return response()->json(['error' => 'No SMS balance'], 403);
             }
         }*/
-        Log::info("PHONE NUMBER ID VALUE: ".$this->phone_number_id);
-        Log::info("TOKEN VALUE: ".$this->token);
-        // ===== SEND MESSAGE =====
-        $url = "https://graph.facebook.com/v22.0/{$this->phone_number_id}/messages";
-    
-        $ch = curl_init($url);
-    
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$this->token}",
-            "Content-Type: application/json"
-        ]);
-    
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
-        $response = curl_exec($ch);
-        
-        curl_close($ch);
+        // ===== SEND MESSAGE (via the current tenant's connected number) =====
+        $client = WhatsAppClient::current();
+
+        if (!$client) {
+            Log::error('WhatsApp reply skipped: no connected account for this tenant.');
+            return null;
+        }
+
+        $response = $client->send($payload)['raw'];
     
         // ===== MINUS BALANCE AFTER SUCCESS =====
         

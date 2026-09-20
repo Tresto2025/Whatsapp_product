@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WhatsApp\WhatsAppClient;
+use Illuminate\Support\Facades\Log;
+
 use Illuminate\Http\Request;
 use App\Models\Appointments;
 use App\Models\DoctorService;
@@ -14,7 +17,6 @@ use App\Models\MessagePrices;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Twilio\Rest\Client;
-use Illuminate\Support\Facades\Log;
 
 class DoctorAppointmentController extends Controller
 {
@@ -269,10 +271,6 @@ class DoctorAppointmentController extends Controller
     
     private function sendWhatsAppMessage($to, $message)
     {
-        $token = config('services.whatsapp.token');
-        $phone_number_id = config('services.whatsapp.phone_number_id');
-    
-        $url = "https://graph.facebook.com/v22.0/{$phone_number_id}/messages";
     
         $payload = [
             "messaging_product" => "whatsapp",
@@ -283,21 +281,14 @@ class DoctorAppointmentController extends Controller
             ]
         ];
     
-        $ch = curl_init($url);
-    
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$token}",
-            "Content-Type: application/json"
-        ]);
-    
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
-        $response = curl_exec($ch);
-        curl_close($ch);
-    
-        return $response;
+        $client = WhatsAppClient::current();
+
+        if (!$client) {
+            Log::error('WhatsApp send skipped: no connected account for this tenant.');
+            return null;
+        }
+
+        return $client->send($payload)['raw'];
     }
     
     public function rescheduleAppointment(Request $request)
@@ -382,9 +373,6 @@ class DoctorAppointmentController extends Controller
     
     private function sendWhatsAppText($to, $message)
     {
-        $token = config('services.whatsapp.token');
-        $phone_number_id = config('services.whatsapp.phone_number_id');
-        $url = "https://graph.facebook.com/v22.0/{$phone_number_id}/messages";
         $payload = [
             "messaging_product" => "whatsapp",
             "to" => $to,
@@ -393,18 +381,14 @@ class DoctorAppointmentController extends Controller
                 "body" => $message
             ]
         ];
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$token}",
-            "Content-Type: application/json"
-        ]);
-    
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
-        return $response;
+        $client = WhatsAppClient::current();
+
+        if (!$client) {
+            Log::error('WhatsApp send skipped: no connected account for this tenant.');
+            return null;
+        }
+
+        return $client->send($payload)['raw'];
     }
     
     private function sendConfirmRescheduleOptions($to, $appointmentId)
@@ -419,10 +403,6 @@ class DoctorAppointmentController extends Controller
                 "title" => "Reschedule Again"
             ]
         ];
-    
-        $token = config('services.whatsapp.token');
-        $phone_number_id = config('services.whatsapp.phone_number_id');
-        $url = "https://graph.facebook.com/v22.0/{$phone_number_id}/messages";
         $payload = [
             "messaging_product" => "whatsapp",
             "to" => $to,
@@ -444,17 +424,14 @@ class DoctorAppointmentController extends Controller
             ]
         ];
     
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$token}",
-            "Content-Type: application/json"
-        ]);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
-        return $response;
+        $client = WhatsAppClient::current();
+
+        if (!$client) {
+            Log::error('WhatsApp send skipped: no connected account for this tenant.');
+            return null;
+        }
+
+        return $client->send($payload)['raw'];
     }
     
     public function missAppointment($id){
