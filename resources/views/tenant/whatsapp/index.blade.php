@@ -23,9 +23,10 @@
             </div>
 
             @if ($accounts->isEmpty())
-              <p class="text-muted mb-0">
-                {{ __('No number connected yet. Connect your Meta WhatsApp number to start receiving messages in this workspace.') }}
+              <p class="text-muted">
+                {{ __('No number connected yet. Connect your own Meta WhatsApp number to start receiving messages in this workspace — each tenant uses their own number and their own credentials.') }}
               </p>
+              <a href="{{ route('tenant.whatsapp.create') }}" class="btn btn-primary">{{ __('Get started') }}</a>
             @else
               <div class="table-responsive">
                 <table class="table table-striped">

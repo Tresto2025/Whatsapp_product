@@ -4,13 +4,15 @@
 <div class="main-panel">
   <div class="content-wrapper">
     <div class="row">
-      <div class="col-md-8">
+      <div class="col-md-10">
 
         @if ($errors->any())
           <div class="alert alert-danger">
             @foreach ($errors->all() as $error)<div>{{ $error }}</div>@endforeach
           </div>
         @endif
+
+        @include('tenant.whatsapp._guide')
 
         <div class="card">
           <div class="card-body">
