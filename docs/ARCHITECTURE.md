@@ -2,29 +2,50 @@
 
 ## Context
 
-**Why:** Today the repo (`Tresto2025/Whatsapp_product`) is a **single-tenant** Laravel 10 app.
-It talks to **one** Meta WhatsApp number whose credentials live in `.env`, replies to
-wake-up messages via a Meta-side template, and manages doctors/appointments for one
-business. There is no notion of separate customers.
+**What this is.** A multi-tenant WhatsApp Business platform — the same category as AiSensy,
+Wati or Interakt. A company signs up, connects the WhatsApp Cloud API account it created on
+Meta, and runs its customer messaging from one dashboard: templates, broadcasts, an
+automated chatbot, and the record of who responded and what they wanted.
 
-**Goal:** Turn it into an **end-to-end multi-tenant product** where:
-- A **Super Admin** provisions and oversees many **tenants** (client businesses).
-- Each **tenant** logs into their own admin panel, connects **their own** Meta WhatsApp
-  account (access token, phone number id, WABA id, app secret), and configures **their own**
-  chatbot flows/templates (e.g. "book appointment", "connect to team").
-- Every inbound message, request, and appointment is captured and visible **per tenant**
-  on the platform, with analytics.
+**It is not a doctor or clinic product.** The repository began as a single-tenant
+appointment-booking app for one clinic, and that vocabulary is still everywhere in the code:
+`doctor_id` on nine tables, 44 `/doctor/*` routes, 48 views, ~900 references. Treat it as
+reference material and as one vertical's worth of working WhatsApp and booking logic — not
+as the domain model. See **Legacy clinic vertical**.
 
-**Decisions (confirmed with user):**
-1. **Tenancy:** Shared database, row-level isolation via a `tenant_id` column + a global
-   Eloquent scope. (Not DB-per-tenant.)
-2. **WhatsApp onboarding:** Phased — **manual credential entry first** (MVP), **Meta
-   Embedded Signup later** once approved as a Tech Provider.
-3. **Chatbots:** **No-code, data-driven flow builder** (tenants self-configure triggers → actions).
-4. **Approach:** **Evolve the existing Laravel codebase** (reuse WhatsApp/appointment/payment logic).
+**What a tenant does, end to end:**
 
----
+1. Sign up; get a workspace.
+2. Create their WhatsApp Business account and message templates on Meta (utility, marketing,
+   authentication) — this happens on Meta, not here.
+3. Paste their Cloud API credentials in; the platform verifies and stores them encrypted.
+4. Sync their approved templates into the platform.
+5. Build a chatbot with no code: triggers (keyword, button tap, template reply) to steps
+   (send text, send template, collect input, record a booking, hand off to a human).
+6. Broadcast a template to a segment of their contacts.
+7. Watch what came back: who it was delivered to, who read it, who replied, who booked, who
+   asked about which service.
 
+**What the platform has to own** — as opposed to what lives in the tenant's Meta account:
+
+| Platform owns | Why |
+|---|---|
+| **Contacts** | Meta has no CRM; segments, tags and opt-in state are ours |
+| **Conversations + messages** | Meta retains no transcript; the transcript is the product |
+| **Templates** (mirrored) | Flows and campaigns are built against them, with approval state |
+| **Campaigns** | Per-recipient delivery/read/reply state for a template send |
+| **Flows** | The no-code chatbot definition |
+| **Responses** | The structured outcome a flow captured — booking, interest, lead |
+| **Analytics** | Rolled up from all of the above |
+
+**Decisions (confirmed):** shared database with `tenant_id` row isolation; manual credential
+entry first and Meta Embedded Signup later; no-code data-driven flows; evolve this codebase
+rather than start over.
+
+**The vocabulary correction matters most for one thing.** "Appointments" is not the domain.
+It is one kind of **response** that one kind of flow records. A restaurant's flow records a
+table booking, a gym's a trial signup, a dealership's a test-drive request. Outcomes must be
+stored generically or every new vertical needs a schema change.
 ## Current-state facts (verified in code)
 
 - **Framework:** Laravel 10, PHP 8.1, Sanctum, DomPDF, simple-qrcode, Twilio SDK, maatwebsite/excel.
@@ -89,43 +110,128 @@ business. There is no notion of separate customers.
 - Push heavy work to a **queued job** (`ProcessInboundWhatsAppMessage`) — move off
   `QUEUE_CONNECTION=sync` to `database` (or Redis) so webhook returns fast.
 
-### 4. No-code chatbot flow engine
-- Tables:
-  - **`chatbot_flows`**: `id, tenant_id, name, is_active, default_reply, timestamps`.
-  - **`flow_triggers`**: `id, flow_id, match_type (keyword|template|any|button), value`.
-  - **`flow_steps`**: `id, flow_id, order, action_type (send_text|send_template|
-    book_appointment|connect_to_team|collect_input|handoff), payload (json)`.
-  - **`whatsapp_templates`**: `id, tenant_id, meta_template_name, category, status, body,
-    variables (json)` — synced from Meta per tenant.
-- **`FlowEngine`** service: given an inbound message + tenant, find the matching trigger,
-  walk steps, execute actions (reuse existing appointment-booking logic), persist state.
-- **Conversation state** table **`chat_sessions`** already exists (`ChatSessions` model) —
-  extend with `tenant_id` + `current_flow_id` + `state (json)`.
+### 4. Contacts (who the tenant is talking to)
 
-### 5. Conversation & request logging (platform visibility)
-- **`conversations`** (`tenant_id, wa_contact, last_message_at, status`) and **`messages`**
-  (`conversation_id, direction, type, body, template_name, meta_message_id, status,
-  timestamps`) — every inbound/outbound stored per tenant.
-- Appointments gain `tenant_id`; existing appointment UI becomes tenant-scoped.
-- **Analytics** views per tenant: message volume, appointments booked, template usage,
-  response rates. Super admin sees cross-tenant rollups.
+Meta gives us a phone number on each inbound message and nothing else. Everything a tenant
+needs to segment and target lives here.
 
-### 6. Panels & routing
-- **Super Admin panel** (`/superadmin/*`, `super_admin` middleware): tenant CRUD, plan/
-  subscription mgmt, provisioning, global metrics, impersonate-tenant.
-- **Tenant Admin panel** (existing dashboard, tenant-scoped): connect WhatsApp, build/enable
-  flows, manage templates, view conversations & appointments, analytics, team/staff, billing.
-- **Onboarding flow:** signup → tenant created → connect WhatsApp → sync templates →
-  build/enable a flow → go live.
-- Keep the marketing frontend; make it tenant-agnostic.
+- **`contacts`**: `id, tenant_id, wa_id (E.164), name, profile_name, email, attributes (json),
+  opted_in_at, opted_out_at, last_inbound_at, last_outbound_at, timestamps`.
+  Unique on `(tenant_id, wa_id)` — the same person can be a contact of two tenants and those
+  are different rows.
+- **`tags`** + **`contact_tag`**: free-form labels a tenant applies ("vip", "interested-in-
+  brunch"), used as campaign segments and set by flow steps.
+- Opt-out is a platform concern: a contact who sends STOP must be excluded from marketing
+  campaigns automatically, regardless of what the flow says.
 
-### 7. Billing (reuse existing Razorpay/wallet)
-- Add **`plans`** and **`subscriptions`** (per tenant). Reuse `RazorpayController`,
-  `WalletController`, `MessagePlans`, `SmsBalance` — re-scope them to `tenant_id`.
-- Meter per-tenant message usage against plan limits.
+### 5. Conversations and messages (the transcript is the product)
 
----
+- **`conversations`**: `id, tenant_id, contact_id, whatsapp_account_id, status
+  (open|snoozed|closed), assigned_user_id, last_message_at, unread_count, timestamps`.
+- **`messages`**: `id, tenant_id, conversation_id, direction (in|out), type
+  (text|image|template|interactive|…), body, template_id, payload (json), meta_message_id,
+  status (queued|sent|delivered|read|failed), error, sent_at, timestamps`.
+  Indexed on `meta_message_id` because delivery receipts arrive later and are matched by it.
+- Meta sends **status webhooks** (sent → delivered → read, or failed) separately from
+  messages. The webhook handler must fan out on `value.statuses[]` as well as
+  `value.messages[]`; without that there is no "who read it", which is half of what the
+  tenant is buying.
+- The existing `chat_sessions` table stays as flow state; it is not the transcript.
 
+### 6. Templates (mirrored from Meta)
+
+- **`whatsapp_templates`**: `id, tenant_id, whatsapp_account_id, meta_template_id, name,
+  language, category (utility|marketing|authentication), status (approved|pending|rejected|
+  paused), body, header_type, variables (json), synced_at, timestamps`.
+- Synced by calling `GET /{waba_id}/message_templates` with the tenant's token. Templates are
+  **created and approved on Meta**, never here — the platform mirrors them so flows and
+  campaigns can be built against a known-approved list, and so a send is not attempted
+  against a rejected template.
+- Meta also pushes `message_template_status_update` webhooks; handling those keeps status
+  fresh without polling.
+
+### 7. Campaigns (broadcast, with per-recipient truth)
+
+- **`campaigns`**: `id, tenant_id, whatsapp_account_id, template_id, name, segment (json),
+  scheduled_at, started_at, completed_at, status, counts (json), timestamps`.
+- **`campaign_recipients`**: `id, campaign_id, contact_id, message_id, status, failed_reason`.
+  This is what makes "who received / read / replied" answerable per campaign rather than as a
+  single aggregate number.
+- Sending is queued and rate-limited per account; Meta throttles, and a synchronous loop over
+  thousands of contacts (what `BroadcastMessagesController` does today) will not survive.
+- Marketing campaigns must respect opt-out; utility ones follow Meta's own rules.
+
+### 8. No-code chatbot flow engine
+
+- **`chatbot_flows`**: `id, tenant_id, name, is_active, default_reply, timestamps`.
+- **`flow_triggers`**: `id, flow_id, match_type (keyword|button|template_reply|any), value`.
+- **`flow_steps`**: `id, flow_id, parent_step_id, order, action_type (send_text|send_template|
+  ask_question|save_attribute|add_tag|record_response|handoff|end), payload (json)`.
+- **`FlowEngine`**: given an inbound message and a tenant, match a trigger, walk the steps,
+  persist position in `chat_sessions`, and emit messages through `WhatsAppClient`.
+- The existing clinic booking logic in `WebhookController` is the reference implementation of
+  what one flow should be able to express: ask a question, offer a list, validate, confirm.
+
+### 9. Responses (what analytics actually counts)
+
+This is the generic replacement for "appointments", and the piece the current schema is
+missing entirely.
+
+- **`responses`**: `id, tenant_id, contact_id, conversation_id, flow_id, type
+  (booking|enquiry|interest|lead|custom), status (new|confirmed|cancelled|done), scheduled_for,
+  data (json), timestamps`.
+- A `record_response` flow step writes one. A clinic's booking flow writes
+  `type=booking, scheduled_for=…`; a restaurant's writes `type=booking` with a table size in
+  `data`; a gym's "interested in a trial" writes `type=interest`.
+- Everything the tenant asked to see — who booked, who replied, who is interested in which
+  service — is a query over `responses` joined to `contacts`, not a per-vertical table.
+
+### 10. Analytics
+
+Per tenant: messages in/out over time, delivery and read rates, template performance,
+campaign funnels (sent → delivered → read → replied → response recorded), flow completion and
+drop-off, response counts by type and status, busiest hours. Super admin sees the same rolled
+up across tenants plus per-tenant usage against plan.
+
+Read models matter here: counting millions of `messages` rows live will not hold up, so daily
+per-tenant rollup tables are part of this phase, not an optimisation afterwards.
+
+### 11. Panels & routing
+
+- **Super admin** (`/superadmin/*`): tenant CRUD and provisioning, suspend/resume, plans and
+  subscriptions, cross-tenant metrics, per-tenant usage, impersonate.
+- **Tenant admin**: inbox (conversations), contacts, templates, campaigns, flow builder,
+  responses, analytics, team, WhatsApp connection, billing.
+- **Agent/staff**: inbox and contacts only — no credentials, no billing.
+- Onboarding: sign up → connect WhatsApp → sync templates → import contacts → build a flow →
+  go live.
+
+### 12. Billing
+
+`plans` and `subscriptions` per tenant; meter messages and campaign sends against plan limits;
+reuse the existing Razorpay and wallet code, re-scoped to `tenant_id`. Meta bills the tenant
+directly for conversations, so platform billing is for the software, not the messages —
+worth stating in the UI so tenants are not surprised by two invoices.
+
+### Legacy clinic vertical
+
+The doctor/appointment code (`/doctor/*`, `doctor_id` on nine tables, `DoctorController`,
+`DoctorAppointmentController`, the booking flow inside `WebhookController`) is the original
+single-tenant product. It is tenant-scoped and works, so it keeps running for the existing
+clinic, but it is **not** the platform's domain model and should not be extended.
+
+Three options, to decide before Phase 3 starts:
+
+1. **Park it (recommended).** Build the generic core beside it; leave the clinic on the old
+   screens until flows + responses can express what it does, then retire them. No disruption,
+   some duplication for a while.
+2. **Generalise in place.** Rename `doctor_id` to `user_id`, relabel the UI. ~900 references,
+   nine tables, real risk to a working tenant, and it still leaves "appointments" as a
+   first-class table rather than a response type.
+3. **Strip it now.** Fastest route to a clean product, breaks the existing clinic.
+
+Recommendation is (1): the booking flow is the best available spec for what the flow engine
+must support, so it is worth keeping runnable while that engine is built.
 ## Files to change / add (representative, not exhaustive)
 
 **New (foundation):**
@@ -163,29 +269,53 @@ business. There is no notion of separate customers.
 
 ## Phased delivery
 
-**Phase 0 — Hygiene & safety (1–2 days).** Confirm repo is private; remove DB dump + dead
-files + stray zips; `env()`→`config()`; guard `/clear-cache` & `admin/message-price`; add
-webhook HMAC verification (single-tenant, as a stepping stone). Ship independently.
+Phases 0–2 are complete; see **Implementation progress**. The remainder was re-cut once the
+product was clarified as a general WhatsApp Business platform rather than a clinic tool.
 
-**Phase 1 — Tenancy core (1 wk).** `tenants` table, `BelongsToTenant` trait + global scope,
-spatie roles, `ResolveTenant`/`EnsureSuperAdmin` middleware, migrate existing data as
-"Tenant #1". Reconstruct baseline migrations from the dump.
+**Phase 0 — Hygiene & safety. Done.** Repo private, DB dump and dead files removed,
+`env()`→`config()`, webhook HMAC verification, dangerous routes guarded.
 
-**Phase 2 — Per-tenant WhatsApp (1 wk).** `whatsapp_accounts` (encrypted creds),
-`WhatsAppClient` service, manual onboarding UI, multi-tenant webhook routing + per-account
-signature verification, queued inbound processing.
+**Phase 1 — Tenancy core. Done.** `tenants`, `BelongsToTenant` + global scope, `TenantManager`,
+`ResolveTenant`/`EnsureSuperAdmin`, native roles, baseline migrations reconstructed from the
+dump, isolation tests.
 
-**Phase 3 — Flow engine + templates (1.5 wks).** Flow/trigger/step tables, `FlowEngine`,
-template sync from Meta, no-code builder UI, conversation/message logging.
+**Phase 2 — Per-tenant WhatsApp. Done.** `whatsapp_accounts` with encrypted credentials,
+`WhatsAppClient` built per account, manual onboarding UI with live credential verification,
+webhook routing by `phone_number_id` with per-account signature checks, queued inbound
+processing, self-serve tenant signup.
 
-**Phase 4 — Panels & analytics (1 wk).** Super Admin panel (tenant CRUD, plans, impersonate),
-tenant analytics dashboards, appointment/request views re-scoped per tenant.
+**Phase 3 — Contacts and the transcript (1–1.5 wks).** `contacts`, `tags`, `conversations`,
+`messages`. Persist every inbound message; persist every outbound send from `WhatsAppClient`;
+handle Meta's `statuses[]` webhooks so delivered/read/failed land on the right message. Build
+the inbox UI. **This is the foundation for everything the tenant wants to see** — without the
+transcript there is nothing to analyse, so it comes before flows.
 
-**Phase 5 — Billing + Embedded Signup (1 wk+).** Plans/subscriptions, usage metering, Meta
-Embedded Signup onboarding.
+**Phase 4 — Templates and campaigns (1–1.5 wks).** Sync templates from
+`GET /{waba_id}/message_templates`, handle template status webhooks, template list UI.
+`campaigns` + `campaign_recipients`, segment picker over contacts/tags, queued rate-limited
+sending, per-recipient delivery state, opt-out handling. Replaces the current synchronous
+broadcast controllers.
+
+**Phase 5 — Flow engine and responses (1.5–2 wks).** `chatbot_flows`, `flow_triggers`,
+`flow_steps`, `responses`; `FlowEngine` walking steps against `chat_sessions` state; no-code
+builder UI. Port the clinic booking flow onto the engine as the proving case — if the engine
+can express it, it can express a restaurant booking or a gym trial signup.
+
+**Phase 6 — Analytics and panels (1–1.5 wks).** Daily per-tenant rollups; tenant dashboards
+(volume, delivery/read rates, template and campaign performance, flow drop-off, responses by
+type); super admin panel (tenant CRUD, provisioning, suspend, impersonate, cross-tenant
+metrics and usage).
+
+**Phase 7 — Billing and Embedded Signup (1 wk+, partly external).** `plans`, `subscriptions`,
+usage metering against limits, Razorpay/wallet re-scoped. Meta Embedded Signup once Tech
+Provider approval lands — external dependency, so it stays last.
+
+**Sequencing note.** Flows were originally Phase 3. They moved after contacts/transcript and
+templates because a flow step that sends a template needs a synced template list, and a flow
+that records a response needs a contact and a conversation to attach it to. Building flows
+first would mean building them twice.
 
 ---
-
 ## Verification
 
 - **Migrations:** `php artisan migrate:fresh --seed` builds the full schema from code (no
