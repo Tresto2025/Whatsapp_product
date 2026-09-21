@@ -72,11 +72,11 @@ Verify: `php -r '$c=curl_init("https://graph.facebook.com/v22.0/");curl_setopt($
 
 ```sh
 mysqld --console          # leave running, or install it as a service
-mysql -u root -e "CREATE DATABASE whatsapp_product CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -e "CREATE DATABASE whatsapp_product_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -e "CREATE DATABASE whatsapp_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -e "CREATE DATABASE whatsapp_platform_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-`whatsapp_product_test` is the database `phpunit.xml` points at, so tests never touch dev data.
+`whatsapp_platform_test` is the database `phpunit.xml` points at, so tests never touch dev data.
 
 ## 3. Application
 
@@ -89,7 +89,7 @@ php artisan key:generate
 Set at least these in `.env`:
 
 ```
-DB_DATABASE=whatsapp_product
+DB_DATABASE=whatsapp_platform
 DB_USERNAME=root
 DB_PASSWORD=
 SUPER_ADMIN_EMAIL=superadmin@example.com
@@ -106,34 +106,11 @@ php artisan migrate:fresh --seed
 needed. Every baseline migration is guarded with `Schema::hasTable()`, so running `migrate`
 against a legacy dump-loaded database only adds the tenancy columns.
 
-### Demo tenants
+### Getting in
 
-To actually exercise multi-tenancy rather than the single marketing site:
-
-```sh
-php artisan db:seed --class=DemoSeeder
-```
-
-This creates two tenants, each with an admin and its own connected WhatsApp number:
-
-| Tenant | Admin login | Doctor login | Password | phone_number_id |
-|---|---|---|---|---|
-| Northside Clinic | `northside@example.com` | `doctor-northside@example.com` | `password` | `100000000000001` |
-| Harbour Dental | `harbour@example.com` | `doctor-harbour@example.com` | `password` | `100000000000002` |
-
-The platform super admin is seeded separately by `TenancySeeder` from
-`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` in `.env`.
-
-What each role sees after signing in at `/login`:
-
-| Role | Lands on | WhatsApp connection page |
-|---|---|---|
-| Super admin (0) | `/dashboard`, unscoped across tenants | yes |
-| Tenant admin (1) | `/dashboard` for their tenant | yes |
-| Doctor / staff (2) | `/doctor-dashboard` | no — 403 |
-
-Sign in as either and open `/tenant/whatsapp` — each sees only its own number and
-verify token. The seeded credentials are fake: routing works, sending does not.
+There is no demo data: sign up at `/signup` to create a workspace and its first admin,
+then connect a number. The platform super admin is seeded by `TenancySeeder` from
+`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`.
 
 ## 4. Front-end assets
 

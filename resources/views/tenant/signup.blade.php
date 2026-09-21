@@ -17,17 +17,10 @@
         </div>
 
         <div class="mt-4">
-            <x-input-label for="first_name" :value="__('Your first name')" />
-            <x-text-input id="first_name" class="block mt-1 w-full" type="text" name="first_name"
-                          :value="old('first_name')" required />
-            <x-input-error :messages="$errors->get('first_name')" class="mt-2" />
-        </div>
-
-        <div class="mt-4">
-            <x-input-label for="last_name" :value="__('Your last name')" />
-            <x-text-input id="last_name" class="block mt-1 w-full" type="text" name="last_name"
-                          :value="old('last_name')" />
-            <x-input-error :messages="$errors->get('last_name')" class="mt-2" />
+            <x-input-label for="name" :value="__('Your name')" />
+            <x-text-input id="name" class="block mt-1 w-full" type="text" name="name"
+                          :value="old('name')" required />
+            <x-input-error :messages="$errors->get('name')" class="mt-2" />
         </div>
 
         <div class="mt-4">

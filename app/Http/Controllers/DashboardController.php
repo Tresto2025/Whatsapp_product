@@ -2,62 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use Auth;
-use Carbon\Carbon;
-use App\Models\User;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Hash;
+use App\Models\Contact;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\Response;
+use App\Models\WhatsappAccount;
+use Illuminate\View\View;
 
+/**
+ * The workspace overview. Super admins run with the tenant scope bypassed, so
+ * the same queries give them platform-wide totals.
+ */
 class DashboardController extends Controller
 {
-    public function index(){
-        $user_type = Auth::user()->role;
-
-        // Platform super admin. Phase 4 replaces this with a dedicated panel;
-        // until then they get the admin dashboard, which their tenant-scope
-        // bypass renders across every tenant rather than just one.
-        if($user_type == User::ROLE_SUPER_ADMIN){
-          return view('dashboard');
-        }
-        if($user_type == User::ROLE_TENANT_ADMIN){
-          return view('dashboard');
-        }
-        if($user_type == User::ROLE_TENANT_STAFF){
-            $id = Auth::user()->id;
-            $doctor = User::where('id',$id)->first();
-         return view('doctor-dashboard', compact('id','doctor'));
-        }
-
-        abort(403, 'This account has no dashboard assigned.');
-    }
-    
-    public function UserLogout(){
-        Auth::logout();
-        return redirect('/login');
-    }
-    
-    public function AdminPassword(){
-        $id = Auth::user()->id;
-        $admin = User::where('id',$id)->first();
-        return view('dashboard.profile.password', compact('id','admin'));
-    }
-    
-    public function AdminUpdatePassword(Request $request){
-        $validatedData = $request->validate([
-            'password' => 'min:8|required_with:confirm_password|same:confirm_password',
-            'confirm_password' => 'min:8',
-            'current_password' => ['required', function ($attribute, $value, $fail) {
-                if (!\Hash::check($value, Auth::user()->password)) {
-                    return $fail(__('The current password is incorrect.'));
-                }
-            }]
+    public function index(): View
+    {
+        return view('dashboard', [
+            'connectedNumbers' => WhatsappAccount::where('connection_status', WhatsappAccount::STATUS_CONNECTED)->count(),
+            'contacts' => Contact::count(),
+            'openConversations' => Conversation::where('status', Conversation::STATUS_OPEN)->count(),
+            'messagesIn' => Message::where('direction', Message::IN)->count(),
+            'messagesOut' => Message::where('direction', Message::OUT)->count(),
+            'responses' => Response::count(),
+            'recentConversations' => Conversation::with('contact')
+                ->orderByDesc('last_message_at')
+                ->limit(10)
+                ->get(),
         ]);
-        $user_details = User::where('id', $request->id)->update([
-            'password' => Hash::make($request->password),
-            'show_password' => $request->password
-        ]);
-        return redirect()->route('admin-password')->with('success', 'Profile Updated successfully.');
     }
 }

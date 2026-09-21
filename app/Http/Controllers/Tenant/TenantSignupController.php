@@ -36,8 +36,7 @@ class TenantSignupController extends Controller
     {
         $data = $request->validate([
             'business_name' => ['required', 'string', 'max:255'],
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['nullable', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
@@ -55,8 +54,7 @@ class TenantSignupController extends Controller
 
             $user = User::create([
                 'tenant_id' => $tenant->id,
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'] ?? null,
+                'name' => $data['name'],
                 'email' => $data['email'],
                 'phone' => $data['phone'] ?? null,
                 'password' => Hash::make($data['password']),

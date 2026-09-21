@@ -345,7 +345,7 @@ dump, isolation tests.
 webhook routing by `phone_number_id` with per-account signature checks, queued inbound
 processing, self-serve tenant signup.
 
-**Phase 3 — Contacts and the transcript (1–1.5 wks).** `contacts`, `tags`, `conversations`,
+**Phase 3 — Contacts and the transcript. Partly done.** `contacts`, `tags`, `conversations`,
 `messages`. Persist every inbound message; persist every outbound send from `WhatsAppClient`;
 handle Meta's `statuses[]` webhooks so delivered/read/failed land on the right message. Build
 the inbox UI. **This is the foundation for everything the tenant wants to see** — without the
@@ -482,6 +482,31 @@ not catch a regression. The file was removed; if Breeze-style profile management
 wanted, write tests against `ProfileController` instead.
 
 With it gone, `php artisan test` is green.
+
+### Clean-schema cutover (done)
+
+The legacy schema was dropped rather than migrated. `whatsapp_platform` is built from 11
+purpose-written migrations: tenants, users, whatsapp_accounts, contacts/tags,
+conversations/messages, whatsapp_templates, campaigns, the flow tables, responses, and
+plans/subscriptions/daily_stats. `tenant_id` is `NOT NULL` with a foreign key everywhere
+except platform super admins, so a cross-tenant write fails at the database rather than
+relying on the global scope alone.
+
+Removed with it: 23 clinic models, 23 controllers, 48 views, the 2,034-line themed layout and
+the doctor registration API. `users` went from 33 columns to 12.
+
+Two things worth recording, both found during the cutover:
+
+- `NewPasswordController` stored every reset password in plaintext in a `show_password`
+  column. Column and code are both gone.
+- `CustomResetPassword` referenced `title` and `last_name`; replaced with the framework's own
+  notification rather than carrying clinic fields forward.
+
+**Phase 3 status.** The inbound half is built and tested: `InboundMessageHandler` turns a
+webhook into contact, conversation and message rows, deduplicates Meta's retries, extracts a
+readable body from text, button, list and caption messages, and applies `statuses[]` receipts
+under a forward-only rule so a late `sent` cannot overwrite a recorded `read`. Still to do:
+the inbox UI, persisting outbound sends through `WhatsAppClient`, and contact import.
 
 ## Open questions / risks
 

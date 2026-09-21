@@ -2,78 +2,49 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\Tenant;
-use App\Notifications\CustomResetPassword;
 
+/**
+ * An operator of the platform. Not a customer — the people a tenant messages
+ * are Contacts.
+ *
+ * Deliberately not tenant-scoped: authentication looks users up before any
+ * tenant context exists. Isolation is enforced by ResolveTenant pinning the
+ * request to $user->tenant_id.
+ */
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * Role values (legacy integer column).
-     *   0 = platform super admin (SaaS owner)
-     *   1 = tenant admin (client business admin)
-     *   2 = tenant staff / doctor
-     */
-    public const ROLE_SUPER_ADMIN = 0;
-    public const ROLE_TENANT_ADMIN = 1;
-    public const ROLE_TENANT_STAFF = 2;
+    public const ROLE_SUPER_ADMIN = 0;   // platform owner, no tenant
+    public const ROLE_TENANT_ADMIN = 1;  // owns a workspace
+    public const ROLE_AGENT = 2;         // works the inbox
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'tenant_id',
-        'title','first_name','last_name',
+        'name',
         'email',
-        'password','show_password','phone','profile_image',
-        'experience','city','role','profession_type','gender',
-        'address','tax_details','pan_number','gst_number','status',
-        'booking_enabled','start_time','end_time','appointment_mode','service_template_id','timing_template_id',
-        'slot_type','slot_gap','timing_template_id_1','timing_template_id_2'
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
         'password',
-        'remember_token',
+        'role',
+        'phone',
+        'avatar_path',
+        'is_active',
+        'last_seen_at',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
+    protected $hidden = ['password', 'remember_token'];
+
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_seen_at' => 'datetime',
+        'is_active' => 'boolean',
         'password' => 'hashed',
+        'role' => 'integer',
     ];
-    
-    public function sendPasswordResetNotification($token)
-    {
-        $this->notify(new CustomResetPassword($token, $this));
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tenancy & roles
-    |--------------------------------------------------------------------------
-    | User is intentionally NOT tenant-scoped via a global scope: authentication
-    | and password-reset lookups run before a tenant context exists. Scope user
-    | listings explicitly with ->where('tenant_id', ...) inside tenant panels.
-    */
 
     public function tenant(): BelongsTo
     {
@@ -82,25 +53,22 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return (int) $this->role === self::ROLE_SUPER_ADMIN;
+        return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
     public function isTenantAdmin(): bool
     {
-        return (int) $this->role === self::ROLE_TENANT_ADMIN;
+        return $this->role === self::ROLE_TENANT_ADMIN;
     }
 
-    public function isTenantStaff(): bool
+    public function isAgent(): bool
     {
-        return (int) $this->role === self::ROLE_TENANT_STAFF;
-    }
-    
-    public function timings() {
-        return $this->hasOne(DoctorTimings::class,'doctor_id');
-    }
-    
-    public function doctortimings(){
-        return $this->hasOne('App\Models\DoctorTimings','doctor_id','id');
+        return $this->role === self::ROLE_AGENT;
     }
 
+    /** Anyone who may administer a workspace. */
+    public function administersWorkspace(): bool
+    {
+        return $this->isSuperAdmin() || $this->isTenantAdmin();
+    }
 }

@@ -20,8 +20,7 @@ class TenantSignupTest extends TestCase
 
     private array $valid = [
         'business_name' => 'Riverside Physio',
-        'first_name' => 'Sam',
-        'last_name' => 'Patel',
+        'name' => 'Sam Patel',
         'email' => 'sam@riverside.test',
         'password' => 'password123',
         'password_confirmation' => 'password123',
