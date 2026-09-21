@@ -100,6 +100,10 @@
                                     <input type="checkbox" class="form-check-input" name="remember" id="remember"> Remember me </label>
                                 </div>
                                 <a href="{{route('password.request')}}" class="auth-link text-black">Forgot password?</a>
+                                <div class="mt-3 text-center">
+                                    <span class="text-muted">Don't have a workspace?</span>
+                                    <a href="{{ route('tenant.signup') }}" class="text-primary">Create one</a>
+                                </div>
                             </div>
                             <div class="my-3">
                                 <button type="submit" class="btn btn-block btn-primary btn-lg font-weight-medium auth-form-btn">LOGIN</button>

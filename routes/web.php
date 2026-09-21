@@ -23,6 +23,7 @@ use App\Http\Controllers\WalletController;
 use App\Http\Controllers\CallbackController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\Tenant\WhatsAppConnectionController;
+use App\Http\Controllers\Tenant\TenantSignupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -277,6 +278,16 @@ Route::middleware('auth')->group(function () {
 | the signed-in user's tenant; route-model binding on WhatsappAccount inherits
 | the global tenant scope, meaning one tenant cannot address another's row.
 */
+/*
+ * Self-serve tenant signup: creates the workspace and its first admin.
+ * Guest-only, like login — an existing user has no business creating a
+ * second workspace from here.
+ */
+Route::middleware('guest')->group(function () {
+    Route::get('signup', [TenantSignupController::class, 'create'])->name('tenant.signup');
+    Route::post('signup', [TenantSignupController::class, 'store'])->name('tenant.signup.store');
+});
+
 Route::middleware(['auth', 'tenant', 'tenant_admin'])->prefix('tenant/whatsapp')->name('tenant.whatsapp.')->group(function () {
     Route::get('/', [WhatsAppConnectionController::class, 'index'])->name('index');
     Route::get('/connect', [WhatsAppConnectionController::class, 'create'])->name('create');
