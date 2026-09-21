@@ -232,6 +232,67 @@ Three options, to decide before Phase 3 starts:
 
 Recommendation is (1): the booking flow is the best available spec for what the flow engine
 must support, so it is worth keeping runnable while that engine is built.
+## Target schema (clean build)
+
+The legacy schema is not carried forward. It was reconstructed from the production dump in
+Phase 1 so the existing clinic stayed reproducible, and that job is done — but 20 of its 29
+tables describe a clinic, not a messaging platform. The product is built on the tables below
+instead.
+
+### Kept from the current build
+
+`tenants`, `whatsapp_accounts`, and Laravel's own `migrations`, `jobs`, `failed_jobs`,
+`password_reset_tokens`, `personal_access_tokens`, `sessions`.
+
+`users` is rebuilt: the current one carries 33 columns of clinic profile (consultation
+timings, slot gaps, PAN/GST, service template ids). A platform user needs
+`id, tenant_id, name, email, password, role, status, last_seen_at, timestamps` and nothing
+more. Per-vertical fields belong in `contacts.attributes`, not on the operator account.
+
+### Dropped
+
+`appointments`, `doctor_service`, `doctor_timings`, `services`, `sms_balance`, `sms_logs`,
+`sms_payments`, `wallet_balance`, `wallet_payments`, `payments`, `message_plans`,
+`message_prices`, `broadcast_messages`, `trainer_profession`, `trainer_skills`, `posts`,
+`categories`, `cities`, `states`, `countries`.
+
+Appointments become `responses`. Broadcasts become `campaigns` + `campaign_recipients`.
+SMS/wallet balances become `subscriptions` + usage counters. The geo tables (148k cities)
+were reference data for a clinic directory and have no place here.
+
+### New core
+
+| Table | Holds |
+|---|---|
+| `contacts` | `tenant_id, wa_id, name, profile_name, email, attributes json, opted_in_at, opted_out_at, last_inbound_at, last_outbound_at` — unique `(tenant_id, wa_id)` |
+| `tags`, `contact_tag` | tenant-defined labels; campaign segments and flow outputs |
+| `conversations` | `tenant_id, contact_id, whatsapp_account_id, status, assigned_user_id, last_message_at, unread_count` |
+| `messages` | `tenant_id, conversation_id, direction, type, body, template_id, payload json, meta_message_id, status, error, sent_at` — indexed on `meta_message_id` for status callbacks |
+| `whatsapp_templates` | mirrored from Meta: `meta_template_id, name, language, category, status, body, header_type, variables json, synced_at` |
+| `campaigns` | `template_id, name, segment json, scheduled_at, started_at, completed_at, status, counts json` |
+| `campaign_recipients` | `campaign_id, contact_id, message_id, status, failed_reason` — per-recipient truth |
+| `chatbot_flows` | `name, is_active, default_reply` |
+| `flow_triggers` | `flow_id, match_type (keyword\|button\|template_reply\|any), value` |
+| `flow_steps` | `flow_id, parent_step_id, order, action_type, payload json` |
+| `flow_runs` | live position of one contact through one flow: `flow_id, contact_id, conversation_id, current_step_id, state json, status` — replaces `chat_sessions` |
+| `responses` | the outcome a flow captured: `contact_id, conversation_id, flow_id, type, status, scheduled_for, data json` |
+| `daily_stats` | per-tenant per-day rollups so analytics never counts raw `messages` live |
+| `plans`, `subscriptions`, `usage_counters` | billing and metering |
+
+Roughly 20 purpose-built tables in place of 29 inherited ones, with every one of them
+tenant-scoped from the first migration rather than gaining `tenant_id` afterwards.
+
+### What this changes about the work
+
+- **Phase 1's guarded migrations can go.** `Schema::hasTable()` guards existed only to be
+  safe against a dump-loaded database. A fresh database needs none of that, and
+  `migrate:fresh` becomes the normal path rather than a thing we tiptoe around.
+- **`tenant_id` stops being nullable.** It was nullable so legacy rows could be backfilled.
+  On a clean build it is `NOT NULL` with a foreign key, which makes cross-tenant leakage a
+  database error rather than something the global scope has to catch.
+- **The clinic app stops working**, because its tables are gone. That is the decision to
+  confirm below, not something to discover later.
+
 ## Files to change / add (representative, not exhaustive)
 
 **New (foundation):**
