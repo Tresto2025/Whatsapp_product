@@ -1,0 +1,7 @@
+[09-Jul-2025 14:19:24 UTC] PHP Fatal error:  Cannot redeclare App\Http\Controllers\Api\WhatsAppController::sendMessage() in /home/salesdealing/public_html/whatsapp.brickandwallsinc.com/app/Http/Controllers/Api/WhatsAppController.php on line 79
+[25-Aug-2025 12:06:29 UTC] PHP Warning:  require(/home/salesdealing/public_html/whatsapp.brickandwallsinc.com/public/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/salesdealing/public_html/whatsapp.brickandwallsinc.com/public/index.php on line 34
+[25-Aug-2025 12:06:29 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/salesdealing/public_html/whatsapp.brickandwallsinc.com/public/../vendor/autoload.php' (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home/salesdealing/public_html/whatsapp.brickandwallsinc.com/public/index.php:34
+Stack trace:
+#0 {main}
+  thrown in /home/salesdealing/public_html/whatsapp.brickandwallsinc.com/public/index.php on line 34
+[12-Mar-2026 11:24:56 Asia/Kolkata] PHP Fatal error:  Cannot use DB as DB because the name is already in use in /home3/infosuzn/tatkaldoctor.com/app/Http/Controllers/WalletController.php on line 12

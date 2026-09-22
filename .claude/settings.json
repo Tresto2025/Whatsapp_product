@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(npm *)", "Bash(npx *)", "Bash(node *)",
+      "Bash(git *)", "Bash(vercel *)",
+      "Bash(ls *)", "Bash(cat *)", "Bash(mkdir *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)", "Bash(git push -f*)",
+      "Bash(rm -rf /*)", "Read(.env*)"
+    ]
+  }
+}

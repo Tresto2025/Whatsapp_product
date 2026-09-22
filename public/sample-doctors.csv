@@ -1,0 +1,4 @@
+title,first_name,last_name,email,phone,password,profession_type,gender,city,address,pan_number,gst_number
+Dr.,Amit,Sharma,amit.sharma@example.com,9876543210,Password@123,"Cardiologist",Male,New Delhi,"123 MG Road, Delhi","124767","GSTIN12345"
+Dr.,Priya,Mehta,priya.mehta@example.com,9876543211,Password@123,"Dermatologist",Female,Mumbai,"456 Andheri West, Mumbai","1gg4767","GSTIN67890"
+Dr.,Rohit,Kumar,rohit.kumar@example.com,9876543212,Password@123,"Orthopedic",Male,Bangalore,"789 Indiranagar, Bangalore","12674767","GSTIN54321"
