@@ -505,8 +505,19 @@ Two things worth recording, both found during the cutover:
 **Phase 3 status.** The inbound half is built and tested: `InboundMessageHandler` turns a
 webhook into contact, conversation and message rows, deduplicates Meta's retries, extracts a
 readable body from text, button, list and caption messages, and applies `statuses[]` receipts
-under a forward-only rule so a late `sent` cannot overwrite a recorded `read`. Still to do:
-the inbox UI, persisting outbound sends through `WhatsAppClient`, and contact import.
+under a forward-only rule so a late `sent` cannot overwrite a recorded `read`.
+
+The inbox and outbound half is now built too. `OutboundMessageSender` sends a reply through
+`WhatsAppClient::forAccount()` and records it as a `Message` row in the same step — a failed
+send is written as `status=failed` with Meta's error rather than dropped, so the thread shows
+it. `ConversationController` lists conversations, renders a thread (clearing the unread badge
+on open), and replies; it is reachable by agents and admins alike, and route-model binding
+inherits the tenant scope so one workspace cannot open another's thread. The reply form warns
+when the 24-hour customer-service window has closed, since a free-text reply outside it will be
+rejected by Meta. Covered by `InboxTest` (listing, cross-tenant 404, unread clearing, a
+persisted send, a recorded failure, validation) plus `Contact`/`Conversation`/`Message`
+factories added for it. **Still to do in Phase 3:** contact import (CSV) and the surrounding
+contacts UI.
 
 ## Open questions / risks
 

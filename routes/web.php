@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\TenantSignupController;
 use App\Http\Controllers\Tenant\WhatsAppConnectionController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,16 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'tenant'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    /*
+     * The inbox is the day-to-day workspace, so agents and admins both reach it.
+     * Route-model binding on Conversation inherits the tenant scope.
+     */
+    Route::prefix('inbox')->name('conversations.')->group(function () {
+        Route::get('/', [ConversationController::class, 'index'])->name('index');
+        Route::get('{conversation}', [ConversationController::class, 'show'])->name('show');
+        Route::post('{conversation}/reply', [ConversationController::class, 'reply'])->name('reply');
+    });
 
     /*
      * Connecting the tenant's own Meta number is an owner-level action, so
