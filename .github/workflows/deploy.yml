@@ -1,0 +1,45 @@
+name: Deploy
+
+# Deploys to the VPS over SSH on every push to the production branch, and on
+# demand from the Actions tab. The server pulls the new code and runs
+# deploy/deploy.sh. It never receives secrets from here — .env lives on the
+# server.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   SSH_HOST      the server hostname or IP
+#   SSH_USER      the deploy user
+#   SSH_KEY       that user's private SSH key (the matching public key is in
+#                 the server's ~/.ssh/authorized_keys)
+#   DEPLOY_PATH   absolute path to the app on the server, e.g. /var/www/whatsapp
+# Optional:
+#   SSH_PORT      SSH port (defaults to 22)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch --all --prune
+            git reset --hard origin/main
+            chmod +x deploy/deploy.sh
+            bash deploy/deploy.sh
