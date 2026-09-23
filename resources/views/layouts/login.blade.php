@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <meta name="robots" content="noindex, nofollow">
-        <title>Tatkal Doctor </title>
+        <title>{{ ($titlePage ?? 'Sign in') }} &middot; {{ config('app.name') }}</title>
         <link rel="stylesheet" href="{{ asset('admin') }}/assets/vendors/mdi/css/materialdesignicons.min.css">
         <link rel="stylesheet" href="{{ asset('admin') }}/assets/vendors/flag-icon-css/css/flag-icon.min.css">
         <link rel="stylesheet" href="{{ asset('admin') }}/assets/vendors/bootstrap-material-design/css/bootstrap-material-design.min.css">

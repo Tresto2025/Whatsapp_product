@@ -505,8 +505,43 @@ Two things worth recording, both found during the cutover:
 **Phase 3 status.** The inbound half is built and tested: `InboundMessageHandler` turns a
 webhook into contact, conversation and message rows, deduplicates Meta's retries, extracts a
 readable body from text, button, list and caption messages, and applies `statuses[]` receipts
-under a forward-only rule so a late `sent` cannot overwrite a recorded `read`. Still to do:
-the inbox UI, persisting outbound sends through `WhatsAppClient`, and contact import.
+under a forward-only rule so a late `sent` cannot overwrite a recorded `read`.
+
+The inbox and outbound half is now built too. `OutboundMessageSender` sends a reply through
+`WhatsAppClient::forAccount()` and records it as a `Message` row in the same step — a failed
+send is written as `status=failed` with Meta's error rather than dropped, so the thread shows
+it. `ConversationController` lists conversations, renders a thread (clearing the unread badge
+on open), and replies; it is reachable by agents and admins alike, and route-model binding
+inherits the tenant scope so one workspace cannot open another's thread. The reply form warns
+when the 24-hour customer-service window has closed, since a free-text reply outside it will be
+rejected by Meta. Covered by `InboxTest` (listing, cross-tenant 404, unread clearing, a
+persisted send, a recorded failure, validation) plus `Contact`/`Conversation`/`Message`
+factories added for it. **Still to do in Phase 3:** contact import (CSV) and the surrounding
+contacts UI.
+
+**Phase 4 status — templates done, campaigns next.** The `WhatsappTemplate` model and a
+one-way sync are built: `WhatsAppClient::fetchTemplates()` pages `GET /{waba_id}/message_templates`,
+and `TemplateSyncService` flattens Meta's component array (header/body/footer/buttons) into
+columns, extracts the positional `{{n}}` variables, maps status/category, and upserts keyed by
+`(account, name, language)` so a re-sync updates rather than duplicates. `TemplateController`
+(admin-gated) lists the mirror and triggers a sync across the tenant's connected numbers.
+Covered by `TemplateSyncTest`.
+
+**Phase 4 is now complete — campaigns are built.** `Campaign` and `CampaignRecipient` model a
+template broadcast and its per-person truth. `CampaignController` (admin-gated) takes a name, an
+approved template, a segment (all contacts or any-of-selected-tags) and a per-placeholder
+variable map (a contact field or static text), materialises the recipients into
+`campaign_recipients`, and dispatches `SendCampaign`. That queued job runs `CampaignDispatcher`
+inside the tenant context: it sends the template through the account's `WhatsAppClient`, writes
+each send as a `Message` on the contact's conversation (so it joins the transcript and later
+receipts), links `recipient.message_id`, and records `sent`/`failed`/`skipped` per recipient —
+marketing templates skip opted-out contacts. `InboundMessageHandler` now also mirrors a
+message's delivery receipt onto its campaign recipient, so "who was delivered / read it" is
+answerable per campaign. A per-account throttle hook (`services.whatsapp.campaign_throttle_ms`,
+default 0) is in place for rate limiting. Covered by `CampaignTest` (send + per-recipient
+records, opt-out skipping, tag segments, receipt reconciliation, approved-template guard).
+
+**Next up (Phase 5):** the no-code flow engine and generic `responses`.
 
 ## Open questions / risks
 

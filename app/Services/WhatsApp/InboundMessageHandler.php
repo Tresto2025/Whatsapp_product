@@ -2,6 +2,7 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Models\CampaignRecipient;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -148,6 +149,27 @@ class InboundMessageHandler
                 $message->error = data_get($status, 'errors.0.title') ?? data_get($status, 'errors.0.message');
             }
             $message->save();
+
+            $this->mirrorToCampaignRecipient($message);
         }
+    }
+
+    /**
+     * A campaign send is one message; carry its delivery status onto that
+     * recipient so a campaign report can answer "who read it" per person.
+     */
+    private function mirrorToCampaignRecipient(Message $message): void
+    {
+        if (!in_array($message->status, [
+            Message::STATUS_SENT, Message::STATUS_DELIVERED,
+            Message::STATUS_READ, Message::STATUS_FAILED,
+        ], true)) {
+            return;
+        }
+
+        CampaignRecipient::where('message_id', $message->id)->update([
+            'status' => $message->status,
+            'updated_at' => now(),
+        ]);
     }
 }
