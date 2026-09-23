@@ -24,7 +24,7 @@ apt-get update -y
 # works on whatever Ubuntu the server runs.
 apt-get install -y curl unzip git \
   php php-fpm php-cli php-mbstring php-xml \
-  php-mysql php-bcmath php-curl php-zip php-intl \
+  php-mysql php-bcmath php-curl php-zip php-intl php-gd \
   nginx mysql-server
 
 # Detect the installed PHP version for the FPM service and socket path.
