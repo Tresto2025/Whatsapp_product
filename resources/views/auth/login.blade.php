@@ -1,4 +1,4 @@
-@extends('layouts.login', ['titlePage' => __('Doctor Go Live')])
+@extends('layouts.login', ['titlePage' => __('Sign in')])
 @section('content')
 <style>
     /* Wrapper */
