@@ -225,6 +225,43 @@ class WhatsAppClient
     }
 
     /**
+     * GET /{waba_id}/message_templates — the tenant's templates as Meta holds
+     * them, one page at a time. Returns the decoded body so the caller can read
+     * both `data` and `paging.next`.
+     *
+     * @return array{ok:bool,status:int,json:array,error:?string}
+     */
+    public function fetchTemplates(string $wabaId, int $limit = 100, ?string $after = null): array
+    {
+        $query = [
+            'fields' => 'id,name,status,category,language,components,rejected_reason',
+            'limit' => $limit,
+        ];
+
+        if ($after) {
+            $query['after'] = $after;
+        }
+
+        try {
+            $response = Http::withToken($this->token)
+                ->acceptJson()
+                ->timeout(30)
+                ->get($this->endpoint("{$wabaId}/message_templates"), $query);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'status' => 0, 'json' => [], 'error' => $e->getMessage()];
+        }
+
+        $json = $response->json() ?? [];
+
+        return [
+            'ok' => $response->successful(),
+            'status' => $response->status(),
+            'json' => $json,
+            'error' => $response->successful() ? null : ($json['error']['message'] ?? $response->body()),
+        ];
+    }
+
+    /**
      * GET /{phone_number_id} — used to prove a pasted token actually controls
      * the number before the credentials are marked connected.
      *

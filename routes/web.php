@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Tenant\ConversationController;
+use App\Http\Controllers\Tenant\TemplateController;
 use App\Http\Controllers\Tenant\TenantSignupController;
 use App\Http\Controllers\Tenant\WhatsAppConnectionController;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,15 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::post('{account}/recheck', [WhatsAppConnectionController::class, 'recheck'])->name('recheck');
         Route::post('{account}/default', [WhatsAppConnectionController::class, 'makeDefault'])->name('default');
         Route::delete('{account}', [WhatsAppConnectionController::class, 'destroy'])->name('destroy');
+    });
+
+    /*
+     * Templates are workspace configuration (they mirror Meta's approved list),
+     * so they sit behind the admin gate alongside the connection.
+     */
+    Route::middleware('tenant_admin')->prefix('templates')->name('tenant.templates.')->group(function () {
+        Route::get('/', [TemplateController::class, 'index'])->name('index');
+        Route::post('sync', [TemplateController::class, 'sync'])->name('sync');
     });
 });
 

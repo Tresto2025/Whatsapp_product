@@ -519,6 +519,16 @@ persisted send, a recorded failure, validation) plus `Contact`/`Conversation`/`M
 factories added for it. **Still to do in Phase 3:** contact import (CSV) and the surrounding
 contacts UI.
 
+**Phase 4 status — templates done, campaigns next.** The `WhatsappTemplate` model and a
+one-way sync are built: `WhatsAppClient::fetchTemplates()` pages `GET /{waba_id}/message_templates`,
+and `TemplateSyncService` flattens Meta's component array (header/body/footer/buttons) into
+columns, extracts the positional `{{n}}` variables, maps status/category, and upserts keyed by
+`(account, name, language)` so a re-sync updates rather than duplicates. `TemplateController`
+(admin-gated) lists the mirror and triggers a sync across the tenant's connected numbers.
+Covered by `TemplateSyncTest`. Still to do in Phase 4: `campaigns` + `campaign_recipients`, a
+segment picker over contacts/tags, queued rate-limited sending with per-recipient delivery
+state, and opt-out handling.
+
 ## Open questions / risks
 
 - **Schema reconstruction — resolved.** Baseline migrations were rebuilt from the dump and
