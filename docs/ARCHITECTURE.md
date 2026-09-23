@@ -525,9 +525,23 @@ and `TemplateSyncService` flattens Meta's component array (header/body/footer/bu
 columns, extracts the positional `{{n}}` variables, maps status/category, and upserts keyed by
 `(account, name, language)` so a re-sync updates rather than duplicates. `TemplateController`
 (admin-gated) lists the mirror and triggers a sync across the tenant's connected numbers.
-Covered by `TemplateSyncTest`. Still to do in Phase 4: `campaigns` + `campaign_recipients`, a
-segment picker over contacts/tags, queued rate-limited sending with per-recipient delivery
-state, and opt-out handling.
+Covered by `TemplateSyncTest`.
+
+**Phase 4 is now complete — campaigns are built.** `Campaign` and `CampaignRecipient` model a
+template broadcast and its per-person truth. `CampaignController` (admin-gated) takes a name, an
+approved template, a segment (all contacts or any-of-selected-tags) and a per-placeholder
+variable map (a contact field or static text), materialises the recipients into
+`campaign_recipients`, and dispatches `SendCampaign`. That queued job runs `CampaignDispatcher`
+inside the tenant context: it sends the template through the account's `WhatsAppClient`, writes
+each send as a `Message` on the contact's conversation (so it joins the transcript and later
+receipts), links `recipient.message_id`, and records `sent`/`failed`/`skipped` per recipient —
+marketing templates skip opted-out contacts. `InboundMessageHandler` now also mirrors a
+message's delivery receipt onto its campaign recipient, so "who was delivered / read it" is
+answerable per campaign. A per-account throttle hook (`services.whatsapp.campaign_throttle_ms`,
+default 0) is in place for rate limiting. Covered by `CampaignTest` (send + per-recipient
+records, opt-out skipping, tag segments, receipt reconciliation, approved-template guard).
+
+**Next up (Phase 5):** the no-code flow engine and generic `responses`.
 
 ## Open questions / risks
 

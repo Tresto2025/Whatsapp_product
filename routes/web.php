@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Tenant\CampaignController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\TemplateController;
 use App\Http\Controllers\Tenant\TenantSignupController;
@@ -60,6 +61,16 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::middleware('tenant_admin')->prefix('templates')->name('tenant.templates.')->group(function () {
         Route::get('/', [TemplateController::class, 'index'])->name('index');
         Route::post('sync', [TemplateController::class, 'sync'])->name('sync');
+    });
+
+    /*
+     * Broadcasts. Sending on behalf of the whole workspace is an admin action.
+     */
+    Route::middleware('tenant_admin')->prefix('campaigns')->name('tenant.campaigns.')->group(function () {
+        Route::get('/', [CampaignController::class, 'index'])->name('index');
+        Route::get('create', [CampaignController::class, 'create'])->name('create');
+        Route::post('/', [CampaignController::class, 'store'])->name('store');
+        Route::get('{campaign}', [CampaignController::class, 'show'])->name('show');
     });
 });
 
