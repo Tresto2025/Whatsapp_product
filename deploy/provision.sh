@@ -13,18 +13,24 @@ APP_DIR="${APP_DIR:-/var/www/whatsapp}"
 APP_URL="${APP_URL:-http://72.61.237.75}"
 DB_NAME="${DB_NAME:-whatsapp_platform}"
 DB_USER="${DB_USER:-whatsapp}"
-PHP_VER=8.2
 
 echo "==> Installing system packages"
 export DEBIAN_FRONTEND=noninteractive
+# Remove any broken third-party PHP source a previous run may have added
+# (the ondrej PPA has no release for some Ubuntu versions and breaks apt).
+rm -f /etc/apt/sources.list.d/*ondrej*.list /etc/apt/sources.list.d/*ondrej*.sources 2>/dev/null || true
 apt-get update -y
-apt-get install -y software-properties-common curl unzip git
-add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1 || true
-apt-get update -y
-apt-get install -y \
-  php${PHP_VER}-fpm php${PHP_VER}-cli php${PHP_VER}-mbstring php${PHP_VER}-xml \
-  php${PHP_VER}-mysql php${PHP_VER}-bcmath php${PHP_VER}-curl php${PHP_VER}-zip php${PHP_VER}-intl \
+# Use the distribution's own PHP packages (unversioned metapackages) so this
+# works on whatever Ubuntu the server runs.
+apt-get install -y curl unzip git \
+  php php-fpm php-cli php-mbstring php-xml \
+  php-mysql php-bcmath php-curl php-zip php-intl \
   nginx mysql-server
+
+# Detect the installed PHP version for the FPM service and socket path.
+PHP_VER="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+echo "==> Using PHP ${PHP_VER}"
+systemctl enable --now "php${PHP_VER}-fpm"
 
 if ! command -v composer >/dev/null 2>&1; then
   echo "==> Installing Composer"
