@@ -49,38 +49,10 @@ systemctl enable --now mysql
 
 cd "$APP_DIR"
 
-# .env is created once and then left alone — regenerating APP_KEY would make
-# every stored WhatsApp token undecryptable.
-if [ ! -f .env ]; then
-  echo "==> Creating .env"
-  DB_PASS="$(openssl rand -hex 16)"
-  cp .env.example .env
-  {
-    echo
-    echo "APP_ENV=production"
-    echo "APP_DEBUG=false"
-    echo "APP_URL=${APP_URL}"
-    echo "DB_CONNECTION=mysql"
-    echo "DB_HOST=127.0.0.1"
-    echo "DB_PORT=3306"
-    echo "DB_DATABASE=${DB_NAME}"
-    echo "DB_USERNAME=${DB_USER}"
-    echo "DB_PASSWORD=${DB_PASS}"
-    echo "QUEUE_CONNECTION=database"
-    echo "SESSION_DRIVER=file"
-    echo "CACHE_DRIVER=file"
-    echo "SUPER_ADMIN_EMAIL=admin@example.com"
-    echo "SUPER_ADMIN_PASSWORD=$(openssl rand -hex 8)"
-  } >> .env
-  NEW_ENV=1
-else
-  echo "==> Reusing existing .env"
-  DB_PASS="$(grep -E '^DB_PASSWORD=' .env | head -1 | cut -d= -f2-)"
-  NEW_ENV=0
-fi
-
-# Enforce safe runtime settings even on a .env left by an earlier run
-# (sessions/cache use files; the DB queue's jobs table exists in the schema).
+# Rebuild a clean, single-line .env each run from .env.example, preserving the
+# existing APP_KEY and DB password when present (so we never orphan encrypted
+# data or drift the DB user's password from what the app sends). Rebuilding
+# avoids the duplicate-key drift that plagues append-only edits.
 ensure_env() {
   local key="$1" val="$2"
   if grep -qE "^${key}=" .env; then
@@ -89,11 +61,32 @@ ensure_env() {
     echo "${key}=${val}" >> .env
   fi
 }
-ensure_env SESSION_DRIVER file
-ensure_env CACHE_DRIVER file
-ensure_env QUEUE_CONNECTION database
+
+OLD_KEY=""
+OLD_PASS=""
+if [ -f .env ]; then
+  OLD_KEY="$(grep -E '^APP_KEY=base64:.+' .env | tail -1 | cut -d= -f2- || true)"
+  OLD_PASS="$(grep -E '^DB_PASSWORD=.+' .env | tail -1 | cut -d= -f2- || true)"
+fi
+DB_PASS="${OLD_PASS:-$(openssl rand -hex 16)}"
+
+echo "==> Writing .env"
+cp .env.example .env
 ensure_env APP_ENV production
 ensure_env APP_DEBUG false
+ensure_env APP_URL "${APP_URL}"
+ensure_env DB_CONNECTION mysql
+ensure_env DB_HOST 127.0.0.1
+ensure_env DB_PORT 3306
+ensure_env DB_DATABASE "${DB_NAME}"
+ensure_env DB_USERNAME "${DB_USER}"
+ensure_env DB_PASSWORD "${DB_PASS}"
+ensure_env QUEUE_CONNECTION database
+ensure_env SESSION_DRIVER file
+ensure_env CACHE_DRIVER file
+grep -q '^SUPER_ADMIN_EMAIL=' .env || echo "SUPER_ADMIN_EMAIL=admin@example.com" >> .env
+grep -q '^SUPER_ADMIN_PASSWORD=' .env || echo "SUPER_ADMIN_PASSWORD=$(openssl rand -hex 8)" >> .env
+[ -n "$OLD_KEY" ] && ensure_env APP_KEY "base64:${OLD_KEY}"
 
 echo "==> Ensuring database and user"
 # The app connects over TCP (DB_HOST=127.0.0.1), which MySQL matches as a
@@ -115,7 +108,7 @@ composer install --no-interaction --prefer-dist --no-progress --no-dev --optimiz
 npm ci
 npm run build
 
-if [ "$NEW_ENV" = "1" ]; then
+if ! grep -qE '^APP_KEY=base64:.+' .env; then
   echo "==> Generating APP_KEY"
   php artisan key:generate --force
 fi
@@ -182,8 +175,6 @@ systemctl restart whatsapp-worker
 
 echo "======================================================"
 echo "Provisioning complete. App should be live at ${APP_URL}"
-if [ "$NEW_ENV" = "1" ]; then
-  echo "Super admin: $(grep -E '^SUPER_ADMIN_EMAIL=' .env | cut -d= -f2-) / $(grep -E '^SUPER_ADMIN_PASSWORD=' .env | cut -d= -f2-)"
-  echo "(Change this password after first login.)"
-fi
+echo "Super admin email: $(grep -E '^SUPER_ADMIN_EMAIL=' .env | tail -1 | cut -d= -f2-)"
+echo "(Super admin password is in .env on the server; change it after first login.)"
 echo "======================================================"
