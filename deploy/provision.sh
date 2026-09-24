@@ -67,8 +67,8 @@ if [ ! -f .env ]; then
     echo "DB_USERNAME=${DB_USER}"
     echo "DB_PASSWORD=${DB_PASS}"
     echo "QUEUE_CONNECTION=database"
-    echo "SESSION_DRIVER=database"
-    echo "CACHE_STORE=database"
+    echo "SESSION_DRIVER=file"
+    echo "CACHE_DRIVER=file"
     echo "SUPER_ADMIN_EMAIL=admin@example.com"
     echo "SUPER_ADMIN_PASSWORD=$(openssl rand -hex 8)"
   } >> .env
@@ -79,12 +79,34 @@ else
   NEW_ENV=0
 fi
 
+# Enforce safe runtime settings even on a .env left by an earlier run
+# (sessions/cache use files; the DB queue's jobs table exists in the schema).
+ensure_env() {
+  local key="$1" val="$2"
+  if grep -qE "^${key}=" .env; then
+    sed -i "s|^${key}=.*|${key}=${val}|" .env
+  else
+    echo "${key}=${val}" >> .env
+  fi
+}
+ensure_env SESSION_DRIVER file
+ensure_env CACHE_DRIVER file
+ensure_env QUEUE_CONNECTION database
+ensure_env APP_ENV production
+ensure_env APP_DEBUG false
+
 echo "==> Ensuring database and user"
+# The app connects over TCP (DB_HOST=127.0.0.1), which MySQL matches as a
+# different host from 'localhost' (the socket). Grant both so it works either
+# way.
 mysql <<SQL
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASS}';
+ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'127.0.0.1';
 FLUSH PRIVILEGES;
 SQL
 
