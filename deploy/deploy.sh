@@ -20,6 +20,9 @@ echo "==> Installing PHP dependencies"
 composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader
 
 echo "==> Building front-end assets"
+# Clear any partial node_modules from an interrupted run (npm ci can hit
+# ENOTEMPTY otherwise), then install cleanly.
+rm -rf node_modules
 npm ci
 npm run build
 
@@ -37,4 +40,13 @@ php artisan queue:restart || true
 
 php artisan up
 trap - EXIT
+
+echo "==> Health check"
+sleep 2
+CODE="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/login || echo 000)"
+echo "GET /login -> HTTP ${CODE}"
+if [ "$CODE" != "200" ]; then
+  echo "WARNING: health check did not return 200"
+fi
+
 echo "==> Deploy complete"
