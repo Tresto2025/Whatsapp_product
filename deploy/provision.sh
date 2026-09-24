@@ -105,6 +105,9 @@ SQL
 
 echo "==> Installing dependencies and building"
 composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader
+# Clear any partial node_modules from an interrupted run (npm ci can hit
+# ENOTEMPTY otherwise), then install cleanly.
+rm -rf node_modules
 npm ci
 npm run build
 
