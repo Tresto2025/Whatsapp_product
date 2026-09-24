@@ -49,6 +49,16 @@ FINAL="$(curl -s -o /dev/null -w '%{http_code}' -L -H 'Host: 72.61.237.75' http:
 echo "GET /login -> HTTP ${CODE} ; ${LOC:-no-redirect} ; after redirects -> HTTP ${FINAL}"
 if [ "$FINAL" != "200" ]; then
   echo "WARNING: health check did not resolve to 200"
+  echo "---- who owns port 80 ----"
+  ss -tlnp 2>/dev/null | grep -E ':80\b' || true
+  echo "---- nginx enabled sites / conf.d ----"
+  ls -1 /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null || true
+  echo "---- other web services ----"
+  for svc in caddy apache2 httpd traefik docker; do printf '%s: ' "$svc"; systemctl is-active "$svc" 2>/dev/null || echo inactive; done
+  echo "---- docker publishing 80? ----"
+  (command -v docker >/dev/null && docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | grep -E ':80->' ) || echo "none"
+  echo "---- direct php-fpm via our nginx (Server header) ----"
+  curl -sI -H 'Host: 72.61.237.75' http://127.0.0.1/login | grep -iE '^server:|^location:' || true
 fi
 
 echo "==> Deploy complete"
