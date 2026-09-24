@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Tenant\CampaignController;
+use App\Http\Controllers\Tenant\ChatbotFlowController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\TemplateController;
 use App\Http\Controllers\Tenant\TenantSignupController;
@@ -71,6 +72,18 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('create', [CampaignController::class, 'create'])->name('create');
         Route::post('/', [CampaignController::class, 'store'])->name('store');
         Route::get('{campaign}', [CampaignController::class, 'show'])->name('show');
+    });
+
+    /*
+     * The MVP chatbot: keyword -> one automatic reply. No branching yet, so
+     * this is workspace configuration like templates/campaigns, admin-gated.
+     */
+    Route::middleware('tenant_admin')->prefix('chatbot')->name('tenant.chatbot.')->group(function () {
+        Route::get('/', [ChatbotFlowController::class, 'index'])->name('index');
+        Route::get('create', [ChatbotFlowController::class, 'create'])->name('create');
+        Route::post('/', [ChatbotFlowController::class, 'store'])->name('store');
+        Route::post('{flow}/toggle', [ChatbotFlowController::class, 'toggle'])->name('toggle');
+        Route::delete('{flow}', [ChatbotFlowController::class, 'destroy'])->name('destroy');
     });
 });
 
