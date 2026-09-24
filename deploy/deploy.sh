@@ -43,10 +43,12 @@ trap - EXIT
 
 echo "==> Health check"
 sleep 2
-CODE="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/login || echo 000)"
-echo "GET /login -> HTTP ${CODE}"
-if [ "$CODE" != "200" ]; then
-  echo "WARNING: health check did not return 200"
+CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: 72.61.237.75' http://127.0.0.1/login || echo 000)"
+LOC="$(curl -sI -H 'Host: 72.61.237.75' http://127.0.0.1/login | tr -d '\r' | grep -i '^location:' || true)"
+FINAL="$(curl -s -o /dev/null -w '%{http_code}' -L -H 'Host: 72.61.237.75' http://127.0.0.1/login || echo 000)"
+echo "GET /login -> HTTP ${CODE} ; ${LOC:-no-redirect} ; after redirects -> HTTP ${FINAL}"
+if [ "$FINAL" != "200" ]; then
+  echo "WARNING: health check did not resolve to 200"
 fi
 
 echo "==> Deploy complete"
