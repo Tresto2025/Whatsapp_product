@@ -7,6 +7,7 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\WhatsappAccount;
+use App\Services\Chatbot\FlowMatcher;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\Log;
  */
 class InboundMessageHandler
 {
+    public function __construct(private FlowMatcher $flowMatcher)
+    {
+    }
+
     public function handle(WhatsappAccount $account, array $payload): void
     {
         foreach (data_get($payload, 'entry', []) as $entry) {
@@ -90,11 +95,13 @@ class InboundMessageHandler
             ['status' => Conversation::STATUS_OPEN]
         );
 
+        $body = $this->extractBody($message);
+
         Message::create([
             'conversation_id' => $conversation->id,
             'direction' => Message::IN,
             'type' => data_get($message, 'type', 'text'),
-            'body' => $this->extractBody($message),
+            'body' => $body,
             'payload' => $message,
             'meta_message_id' => $metaId,
             'status' => Message::STATUS_DELIVERED, // it reached us
@@ -106,6 +113,8 @@ class InboundMessageHandler
             'unread_count' => $conversation->unread_count + 1,
             'status' => Conversation::STATUS_OPEN,
         ])->save();
+
+        $this->flowMatcher->handle($account, $contact, $conversation, $body);
     }
 
     /**
