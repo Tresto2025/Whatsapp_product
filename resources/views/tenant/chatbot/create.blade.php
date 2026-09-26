@@ -78,7 +78,7 @@
                   </select>
                 @endif
                 <p class="form-text text-muted">
-                  {{ __('Only templates with no placeholders are listed — auto-replies can\'t fill {{n}} variables yet.') }}
+                  {{ __('Only templates with no placeholders are listed — auto-replies can\'t fill template variables yet.') }}
                 </p>
               </div>
 
