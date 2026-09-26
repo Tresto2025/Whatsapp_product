@@ -10,7 +10,10 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/whatsapp}"
-APP_URL="${APP_URL:-http://72.61.237.75}"
+# Ports 80/443 on this shared VPS belong to another app's Docker proxy, so this
+# app gets its own port. Must match APP_PORT in deploy.sh.
+APP_PORT="${APP_PORT:-8081}"
+APP_URL="${APP_URL:-http://72.61.237.75:${APP_PORT}}"
 DB_NAME="${DB_NAME:-whatsapp_platform}"
 DB_USER="${DB_USER:-whatsapp}"
 
@@ -131,8 +134,8 @@ php artisan view:cache
 echo "==> Configuring nginx"
 cat > /etc/nginx/sites-available/whatsapp <<NGINX
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
+    listen ${APP_PORT};
+    listen [::]:${APP_PORT};
     server_name _;
     root ${APP_DIR}/public;
 
@@ -166,6 +169,10 @@ After=network.target mysql.service
 [Service]
 User=www-data
 Restart=always
+# Without a delay, the burst of clean exits a deploy causes (queue:restart,
+# maintenance mode) trips systemd's 5-starts-in-10s limit and the worker stays
+# dead until someone runs reset-failed.
+RestartSec=5
 WorkingDirectory=${APP_DIR}
 ExecStart=/usr/bin/php artisan queue:work --sleep=1 --tries=3 --max-time=3600
 

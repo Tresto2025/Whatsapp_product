@@ -42,23 +42,25 @@ php artisan up
 trap - EXIT
 
 echo "==> Health check"
+# The app listens on its own port (80/443 belong to another app's Docker proxy
+# on this shared VPS). Must match APP_PORT in provision.sh.
+APP_PORT="${APP_PORT:-8081}"
 sleep 2
-CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: 72.61.237.75' http://127.0.0.1/login || echo 000)"
-LOC="$(curl -sI -H 'Host: 72.61.237.75' http://127.0.0.1/login | tr -d '\r' | grep -i '^location:' || true)"
-FINAL="$(curl -s -o /dev/null -w '%{http_code}' -L -H 'Host: 72.61.237.75' http://127.0.0.1/login || echo 000)"
-echo "GET /login -> HTTP ${CODE} ; ${LOC:-no-redirect} ; after redirects -> HTTP ${FINAL}"
-if [ "$FINAL" != "200" ]; then
-  echo "WARNING: health check did not resolve to 200"
-  echo "---- who owns port 80 ----"
-  ss -tlnp 2>/dev/null | grep -E ':80\b' || true
-  echo "---- nginx enabled sites / conf.d ----"
-  ls -1 /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null || true
-  echo "---- other web services ----"
-  for svc in caddy apache2 httpd traefik docker; do printf '%s: ' "$svc"; systemctl is-active "$svc" 2>/dev/null || echo inactive; done
-  echo "---- docker publishing 80? ----"
-  (command -v docker >/dev/null && docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | grep -E ':80->' ) || echo "none"
-  echo "---- direct php-fpm via our nginx (Server header) ----"
-  curl -sI -H 'Host: 72.61.237.75' http://127.0.0.1/login | grep -iE '^server:|^location:' || true
+CODE="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${APP_PORT}/login" || echo 000)"
+echo "GET :${APP_PORT}/login -> HTTP ${CODE}"
+if [ "$CODE" != "200" ]; then
+  echo "WARNING: health check did not return 200"
+  echo "---- listener on :${APP_PORT} ----"
+  ss -tlnp 2>/dev/null | grep -E ":${APP_PORT}\b" || echo "nothing listening"
+  nginx -t 2>&1 | tail -2 || true
+fi
+
+# Report only; a dead worker means campaigns and inbound messages (including
+# chatbot auto-replies) silently stop processing.
+WORKER="$(systemctl is-active whatsapp-worker 2>/dev/null || true)"
+echo "whatsapp-worker: ${WORKER:-unknown}"
+if [ "$WORKER" != "active" ] && [ "$WORKER" != "activating" ]; then
+  echo "WARNING: queue worker is not running — check 'systemctl status whatsapp-worker'"
 fi
 
 echo "==> Deploy complete"
