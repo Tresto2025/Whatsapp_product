@@ -173,6 +173,27 @@ class ChatbotAutoReplyTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_the_chatbot_pages_render(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $this->actingInTenant($tenant);
+        $account = WhatsappAccount::factory()->forTenant($tenant)->create();
+        WhatsappTemplate::factory()->forAccount($account)->create(['name' => 'welcome_plain', 'variables' => []]);
+        $this->textFlow($tenant, 'hi', 'Hello!');
+
+        $this->get(route('tenant.chatbot.index'))->assertOk()->assertSee('Hello!');
+        $this->get(route('tenant.chatbot.create'))->assertOk()->assertSee('welcome_plain');
+    }
+
+    public function test_agents_cannot_manage_auto_replies(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $this->actingAs(User::factory()->forTenant($tenant)->create());
+
+        $this->get(route('tenant.chatbot.index'))->assertForbidden();
+        $this->get(route('tenant.chatbot.create'))->assertForbidden();
+    }
+
     public function test_a_tenant_admin_can_create_a_text_auto_reply(): void
     {
         $tenant = Tenant::factory()->create();
